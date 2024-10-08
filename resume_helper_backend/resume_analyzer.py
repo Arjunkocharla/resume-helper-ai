@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Set your API key as an environment variable or use it directly (less secure)
-#os.environ["ANTHROPIC_API_KEY"] = "***REMOVED***"
+
 os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY")
 client = anthropic.Anthropic()
 
