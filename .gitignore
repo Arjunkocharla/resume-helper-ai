@@ -30,4 +30,4 @@ Thumbs.db
 # Application specific
 uploads/
 *.log
-.env
+.env.venv/
