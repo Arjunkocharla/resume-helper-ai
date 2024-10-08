@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# JavaScript
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Application specific
+uploads/
+*.log
+.env
