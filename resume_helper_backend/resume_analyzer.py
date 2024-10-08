@@ -12,7 +12,6 @@ CORS(app)
 
 
 
-os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY")
 client = anthropic.Anthropic()
 
 # Configure upload folder and allowed extensions
