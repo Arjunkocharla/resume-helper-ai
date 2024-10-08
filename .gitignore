@@ -31,3 +31,4 @@ Thumbs.db
 uploads/
 *.log
 .env.venv/
+*.resume_app_venv
