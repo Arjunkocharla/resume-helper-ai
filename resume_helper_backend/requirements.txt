@@ -1,0 +1,7 @@
+Flask
+openai
+pdfminer.six
+python-docx
+flask-cors
+anthropic
+Werkzeug
