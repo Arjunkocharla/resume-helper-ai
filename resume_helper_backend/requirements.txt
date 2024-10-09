@@ -1,4 +1,0 @@
-Flask
-openai
-pdfminer.six
-python-docx
