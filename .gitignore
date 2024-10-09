@@ -32,3 +32,4 @@ uploads/
 *.log
 .env.venv/
 *.resume_app_venv
+
