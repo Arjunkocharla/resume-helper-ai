@@ -1,17 +1,23 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+**/node_modules/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# Production build
+**/build/
 
-# testing
-/coverage
+# Virtual Environments
+**/resume_app_venv/
+**/.venv/
+**/venv/
+**/ENV/
+**/env/
+**/*.venv/
 
-# production
-/build
+# Python artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
 
-# misc
+# Misc
 .DS_Store
 .env.local
 .env.development.local
@@ -21,16 +27,17 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env
-*.log
-uploads/
-#Virtual Environments
-**/resume_app_venv/
-**/.venv
-**/venv/
-**/ENV/
-**/env/
-**/*.venv
-**/__pycache__/
-**/*.py[cod]
-**/*$py.class
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Frontend specific
+resume_helper_frontend/build/
+resume_helper_frontend/.env
+
+# Backend specific
+resume_helper_backend/resume_app_venv/
+resume_helper_backend/.env
