@@ -88,50 +88,62 @@ def analyze_resume_structure():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As an expert resume analyst and career advisor, analyze the following resume. Your task is to provide a structured response in JSON format. Ensure that the JSON is perfectly formatted, with all keys and string values enclosed in double quotes, and no extraneous text outside the JSON structure. The JSON should include the following sections:
+    prompt = f"""As an expert resume analyst and ATS specialist, analyze the following resume with a focus on ATS compatibility and keyword optimization. Provide a structured response in JSON format. The JSON should include:
 
-    1. "Inferred Industry": A string indicating the industry or job category this resume is targeting.
+    1. "ATS_Compatibility_Score": An integer from 1-100 assessing how well the resume would perform in ATS scans.
 
-    2. "Metrics": An object containing:
-       - "Total Word Count": An integer.
-       - "Number of Bullet Points": An integer.
-       - "Percentage of Empty Lines": A string formatted as a percentage (e.g., "10.5%").
-       - "Number of Action Verbs Used": An integer.
-       - "Number of Quantifiable Achievements": An integer.
+    2. "Keywords_Analysis": {{
+        "Present_Keywords": An array of all relevant keywords found in the resume.
+        "Missing_Keywords": An array of important industry-standard keywords not present in the resume.
+        "Keyword_Density": A string representing the overall keyword density (e.g., "15.3%").
+    }}
 
-    3. "Structure": An object containing:
-       - "Presence and Order of Standard Sections": An array of strings.
-       - "Overall Layout Effectiveness": An integer (scale of 1-10).
+    3. "ATS_Friendly_Structure": {{
+        "Format_Score": An integer from 1-10 assessing how ATS-friendly the resume format is.
+        "Section_Order": An array of strings representing the current order of resume sections.
+        "Recommended_Section_Order": An array of strings suggesting the ideal ATS-friendly section order.
+    }}
 
-    4. "Content": An object containing:
-       - "Balance Between Technical Skills and Soft Skills": A string formatted as a percentage (e.g., "70% technical, 30% soft").
-       - "Top 5 Relevant Keywords": An array of strings.
+    4. "Content_Analysis": {{
+        "Total_Word_Count": An integer.
+        "Bullet_Points_Count": An integer.
+        "Action_Verbs_Count": An integer.
+        "Quantifiable_Achievements_Count": An integer.
+    }}
 
-    5. "Strengths": An array of strings listing key strengths of the resume.
+    5. "ATS_Optimization_Tips": An array of strings with specific, actionable recommendations to improve ATS compatibility and keyword usage.
 
-    6. "Areas for Improvement": An array of strings listing specific suggestions for enhancement.
+    6. "Strengths": An array of strings highlighting the resume's strong points.
 
-    7. "Overall Assessment": A string providing a brief evaluation summary (2-3 sentences).
+    7. "Industry_Specific_Suggestions": {{
+        "Inferred_Industry": A string indicating the primary industry or job category this resume targets.
+        "Industry_Keywords": An array of 20-30 highly relevant industry-specific keywords to consider incorporating.
+        "Industry_Specific_Tips": An array of strings with industry-specific advice for ATS optimization.
+    }}
 
-    8. "Industry Comparison": An object containing:
-       - "Typical Word Count Range": A string.
-       - "Typical Number of Bullet Points Range": A string.
-       - "Typical Percentage of Empty Lines Range": A string formatted as a percentage range (e.g., "5-15%").
-       - "Typical Number of Action Verbs Used Range": A string.
-       - "Typical Number of Quantifiable Achievements Range": A string.
+    8. "Overall_Assessment": A string (3-4 sentences) evaluating the resume's effectiveness for ATS, highlighting major strengths and areas for improvement.
 
-    9. "Recommendations": An array of strings listing actionable recommendations to improve the resume's appeal.
+    9. "Industry_Standards": {{
+        "Word_Count_Range": A string representing the typical word count range for resumes in this industry (e.g., "400-600").
+        "Keyword_Density_Range": A string representing the ideal keyword density range (e.g., "2%-3.5%").
+        "Bullet_Points_Range": A string representing the ideal number of bullet points (e.g., "15-25").
+        "Sections_Importance": An object with section names as keys and importance scores (1-10) as values.
+        "Key_Action_Verbs": An array of 10-15 powerful action verbs commonly used in top resumes for this industry.
+        "Ideal_Quantifiable_Achievements": An integer representing the ideal number of quantifiable achievements.
+        "File_Format_Preference": A string indicating the preferred file format(s) for ATS (e.g., "PDF, DOCX").
+        "Optimal_Length_Pages": A string representing the ideal resume length in pages (e.g., "1-2").
+    }}
 
     Resume Text:
     {resume_text}
 
-    Ensure the JSON is valid and can be parsed without errors. Do not include any text outside of the JSON structure.
+    Ensure all output is ATS-friendly and focused on maximizing the resume's performance in automated screening systems. The JSON should be valid and parseable without errors. Do not include any text outside of the JSON structure.
     """
 
     try:
         response = client.messages.create(
             model="claude-3-haiku-20240307",
-            max_tokens=1500,
+            max_tokens=3000,
             temperature=0.2,
             messages=[
                 {

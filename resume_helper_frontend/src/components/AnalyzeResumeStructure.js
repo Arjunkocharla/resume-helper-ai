@@ -2,23 +2,30 @@ import React, { useState } from 'react';
 import {
   Box, Button, Typography, CircularProgress, Paper, Grid,
   List, ListItem, ListItemIcon, ListItemText, Divider,
-  Container, Fade, Alert, LinearProgress, Modal, Tooltip
+  Container, Fade, Alert, LinearProgress, Tooltip,
+  Accordion, AccordionSummary, AccordionDetails, Chip
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
-  CheckCircleOutline
+  CheckCircleOutline,
+  ExpandMore as ExpandMoreIcon,
+  ThumbUp as ThumbUpIcon,
+  Build as BuildIcon,
+  ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
+import { Radar } from 'react-chartjs-2';
+import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip, Legend } from 'chart.js';
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, Legend);
 
 const AnalyzeResumeStructure = () => {
   const [file, setFile] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState(null);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -55,108 +62,72 @@ const AnalyzeResumeStructure = () => {
     }
   };
 
-  const handleMetricClick = (metric) => {
-    console.log("Clicked metric:", metric);
-    const industryKey = metric.key.replace(/_/g, ' ');
-    const industryValue = analysis['Industry Comparison'][`Typical ${industryKey} Range`];
-    setSelectedMetric({
-      key: metric.key,
-      value: metric.value,
-      industryValue: industryValue
-    });
-    console.log("Set selectedMetric:", {
-      key: metric.key,
-      value: metric.value,
-      industryValue: industryValue
-    });
-    setModalOpen(true);
-  };
-
-  const renderMetrics = () => {
-    const { Metrics, 'Industry Comparison': industryComparison } = analysis || {};
+  const renderATSScore = () => {
+    if (!analysis) return null;
     return (
-      <Grid container spacing={2}>
-        {Metrics && Object.entries(Metrics).map(([key, value]) => {
-          const industryValue = industryComparison ? industryComparison[key.replace(/_/g, ' ')] : null;
-          console.log(`Metric: ${key}, Value: ${value}, Industry Value: ${industryValue}`);
-          const industryRange = industryValue ? industryValue.split('-').map(v => parseFloat(v)) : null;
-          const progressValue = industryRange ? ((value - industryRange[0]) / (industryRange[1] - industryRange[0])) * 100 : 0;
-
-          return (
-            <Grid item xs={12} sm={6} md={4} key={key}>
-              <Tooltip title={`Click for more details on ${key.split('_').join(' ')}`} arrow>
-                <Paper 
-                  elevation={3} 
-                  sx={{ 
-                    p: 2, 
-                    textAlign: 'center', 
-                    height: '100%', 
-                    background: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      boxShadow: 6,
-                    }
-                  }}
-                  onClick={() => handleMetricClick({ 
-                    key, 
-                    value, 
-                    industryValue 
-                  })}
-                >
-                  <Typography variant="h6">{value}</Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </Typography>
-                  {industryValue && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="textSecondary">
-                        Industry Standard: {industryValue}
-                      </Typography>
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={Math.min(Math.max(progressValue, 0), 100)} 
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
-                  )}
-                </Paper>
-              </Tooltip>
-            </Grid>
-          );
-        })}
-      </Grid>
+      <Box textAlign="center" mb={4}>
+        <Typography variant="h4" gutterBottom>ATS Compatibility Score</Typography>
+        <Box position="relative" display="inline-flex">
+          <CircularProgress
+            variant="determinate"
+            value={analysis.ATS_Compatibility_Score}
+            size={200}
+            thickness={4}
+            sx={{ color: getScoreColor(analysis.ATS_Compatibility_Score) }}
+          />
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            bottom={0}
+            right={0}
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Typography variant="h3" component="div" color="text.secondary">
+              {analysis.ATS_Compatibility_Score}%
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
     );
   };
 
-  const renderAnalysisSection = (title, items, icon) => (
-    <Box mb={3}>
-      <Typography variant="h6" gutterBottom>{title}</Typography>
-      <List>
-        {items && items.map((item, index) => (
-          <ListItem key={index}>
-            <ListItemIcon>{icon}</ListItemIcon>
-            <ListItemText primary={item} />
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'success.main';
+    if (score >= 60) return 'warning.main';
+    return 'error.main';
+  };
 
-  const renderContentAnalysis = () => {
-    const { Content } = analysis || {};
+  const renderContentMetrics = () => {
+    const { Content_Analysis, Industry_Standards } = analysis || {};
+    if (!Content_Analysis || !Industry_Standards) return null;
+
+    const metrics = [
+      { label: 'Word Count', value: Content_Analysis.Total_Word_Count, range: Industry_Standards.Word_Count_Range },
+      { label: 'Bullet Points', value: Content_Analysis.Bullet_Points_Count, range: Industry_Standards.Bullet_Points_Range },
+      { label: 'Action Verbs', value: Content_Analysis.Action_Verbs_Count },
+      { label: 'Quantifiable Achievements', value: Content_Analysis.Quantifiable_Achievements_Count, ideal: Industry_Standards.Ideal_Quantifiable_Achievements },
+    ];
+
     return (
-      <Grid container spacing={2}>
-        {Content && Object.entries(Content).map(([key, value]) => (
-          <Grid item xs={12} sm={6} md={4} key={key}>
-            <Paper elevation={3} sx={{ 
-              p: 2, 
-              height: '100%', 
-              background: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)' 
-            }}>
-              <Typography variant="subtitle1" gutterBottom>
-                {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-              </Typography>
-              <Typography variant="body2">{value}</Typography>
+      <Grid container spacing={2} justifyContent="center">
+        {metrics.map((metric, index) => (
+          <Grid item xs={6} sm={3} key={index}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%', textAlign: 'center' }}>
+              <Typography variant="h5" color="primary">{metric.value}</Typography>
+              <Typography variant="subtitle2">{metric.label}</Typography>
+              {metric.range && (
+                <Typography variant="caption" color="text.secondary">
+                  Industry: {metric.range}
+                </Typography>
+              )}
+              {metric.ideal && (
+                <Typography variant="caption" color="text.secondary">
+                  Ideal: {metric.ideal}
+                </Typography>
+              )}
             </Paper>
           </Grid>
         ))}
@@ -164,71 +135,211 @@ const AnalyzeResumeStructure = () => {
     );
   };
 
-  const renderIndustryComparison = () => {
-    const { 'Industry Comparison': industryComparison } = analysis || {};
-    if (!industryComparison) return null;
+  const renderStrengthsAndImprovements = () => {
+    if (!analysis) return null;
+
+    const strengths = analysis.Strengths || [];
+    const improvements = analysis.ATS_Optimization_Tips || [];
+
+    return (
+      <Grid container spacing={3} mt={2}>
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 2, height: '100%', bgcolor: '#e8f5e9' }}>
+            <Typography variant="h6" gutterBottom>
+              <ThumbUpIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+              Strengths
+            </Typography>
+            <List dense>
+              {strengths.map((strength, index) => (
+                <ListItem key={index}>
+                  <ListItemIcon><CheckCircleIcon color="success" /></ListItemIcon>
+                  <ListItemText primary={strength} />
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 2, height: '100%', bgcolor: '#fff3e0' }}>
+            <Typography variant="h6" gutterBottom>
+              <BuildIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+              Possible Improvements
+            </Typography>
+            <List dense>
+              {improvements.map((improvement, index) => (
+                <ListItem key={index}>
+                  <ListItemIcon><WarningIcon color="warning" /></ListItemIcon>
+                  <ListItemText primary={improvement} />
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        </Grid>
+      </Grid>
+    );
+  };
+
+  const renderKeywordsAnalysis = () => {
+    const { Keywords_Analysis, Industry_Standards } = analysis || {};
+    if (!Keywords_Analysis || !Industry_Standards) return null;
 
     return (
       <Box mb={3}>
-        <Typography variant="h6" gutterBottom>Industry Comparison</Typography>
-        <List>
-          {Object.entries(industryComparison).map(([key, value], index) => (
-            <ListItem key={index}>
-              <ListItemIcon><InfoIcon color="info" /></ListItemIcon>
-              <ListItemText 
-                primary={`${key}: ${value}`} 
-                primaryTypographyProps={{ variant: 'body2' }}
-              />
-            </ListItem>
-          ))}
-        </List>
+        <Typography variant="h6" gutterBottom>Keywords Analysis</Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+              <Typography variant="subtitle1" gutterBottom>Present Keywords</Typography>
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {Keywords_Analysis.Present_Keywords.map((keyword, index) => (
+                  <Chip key={index} label={keyword} color="primary" variant="outlined" />
+                ))}
+              </Box>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+              <Typography variant="subtitle1" gutterBottom>Missing Keywords</Typography>
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {Keywords_Analysis.Missing_Keywords.map((keyword, index) => (
+                  <Chip key={index} label={keyword} color="secondary" variant="outlined" />
+                ))}
+              </Box>
+            </Paper>
+          </Grid>
+          <Grid item xs={12}>
+            <Paper elevation={2} sx={{ p: 2 }}>
+              <Typography variant="subtitle1">Keyword Density</Typography>
+              <Box display="flex" alignItems="center">
+                <Typography variant="h5" color="primary" mr={2}>{Keywords_Analysis.Keyword_Density}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Industry Range: {Industry_Standards.Keyword_Density_Range}
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
       </Box>
     );
   };
 
-  const renderModalContent = () => {
-    console.log("Rendering modal content with selectedMetric:", selectedMetric);
-    if (!selectedMetric) return null;
-    const { key, value, industryValue } = selectedMetric;
-    const industryRange = industryValue ? industryValue.split('-').map(v => parseFloat(v)) : null;
-    const isAboveIndustry = industryRange && value > industryRange[1];
-    const isBelowIndustry = industryRange && value < industryRange[0];
+  const renderSectionOrder = () => {
+    const { ATS_Friendly_Structure } = analysis || {};
+    if (!ATS_Friendly_Structure) return null;
 
-    const getAdvice = () => {
-      if (key === "Number_of_Action_Verbs_Used") {
-        if (isAboveIndustry) {
-          return "Your resume has a strong use of action verbs, which can make your achievements more impactful. Consider reviewing to ensure all verbs are varied and relevant.";
-        } else if (isBelowIndustry) {
-          return "Consider incorporating more action verbs to make your achievements more dynamic and impactful. Focus on verbs that showcase your skills and accomplishments.";
-        } else {
-          return "Your use of action verbs is within the industry standard. To further improve, ensure each verb is impactful and directly relates to your achievements.";
-        }
-      }
-      // Add similar conditions for other metrics
-      return "";
+    const { Section_Order, Recommended_Section_Order } = ATS_Friendly_Structure;
+
+    return (
+      <Box mb={3}>
+        <Typography variant="h6" gutterBottom>Resume Section Order</Typography>
+        <Paper elevation={2} sx={{ p: 2, position: 'relative' }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="subtitle1">Current Order</Typography>
+            <Typography variant="subtitle1">Recommended Order</Typography>
+          </Box>
+          <Box display="flex" justifyContent="space-between" position="relative">
+            <Box flex={1}>
+              {Section_Order.map((section, index) => (
+                <Chip
+                  key={index}
+                  label={section}
+                  sx={{ m: 0.5 }}
+                  color={Recommended_Section_Order[index] === section ? 'primary' : 'default'}
+                />
+              ))}
+            </Box>
+            <Box
+              position="absolute"
+              top="50%"
+              left="50%"
+              sx={{ transform: 'translate(-50%, -50%)' }}
+            >
+              <ArrowForwardIcon color="action" fontSize="large" />
+            </Box>
+            <Box flex={1} textAlign="right">
+              {Recommended_Section_Order.map((section, index) => (
+                <Chip
+                  key={index}
+                  label={section}
+                  sx={{ m: 0.5 }}
+                  color="primary"
+                />
+              ))}
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  };
+
+  const renderATSFriendlyStructure = () => {
+    const { ATS_Friendly_Structure, Industry_Standards } = analysis || {};
+    if (!ATS_Friendly_Structure || !Industry_Standards) return null;
+
+    return (
+      <Box mb={3}>
+        <Typography variant="h6" gutterBottom>ATS-Friendly Structure</Typography>
+        <Paper elevation={2} sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1">Format Score: {ATS_Friendly_Structure.Format_Score}/10</Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={ATS_Friendly_Structure.Format_Score * 10} 
+                sx={{ mt: 1, mb: 2, height: 10, borderRadius: 5 }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle1">File Format Preference</Typography>
+              <Typography variant="body2">{Industry_Standards.File_Format_Preference}</Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Box>
+    );
+  };
+
+  const renderIndustrySpecificSuggestions = () => {
+    const { Industry_Specific_Suggestions, Industry_Standards } = analysis || {};
+    if (!Industry_Specific_Suggestions || !Industry_Standards) return null;
+
+    const radarData = {
+      labels: Object.keys(Industry_Standards.Sections_Importance),
+      datasets: [
+        {
+          label: 'Section Importance',
+          data: Object.values(Industry_Standards.Sections_Importance),
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        },
+      ],
     };
 
     return (
-      <Box sx={{ p: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          Your Value: {value}
-        </Typography>
-        <Typography variant="body1" gutterBottom>
-          Industry Standard: {industryValue || 'Not available'}
-        </Typography>
-        {industryRange && (
-          <>
-            <Typography variant="body2" color={isAboveIndustry ? "success.main" : (isBelowIndustry ? "error.main" : "textSecondary")}>
-              {isAboveIndustry ? "Above" : (isBelowIndustry ? "Below" : "Within")} industry standard
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 2 }}>
-              {getAdvice()}
-            </Typography>
-          </>
-        )}
+      <Box mb={3}>
+        <Typography variant="h6" gutterBottom>Industry-Specific Analysis</Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+              <Typography variant="subtitle1" gutterBottom>Inferred Industry: {Industry_Specific_Suggestions.Inferred_Industry}</Typography>
+              <Typography variant="subtitle1" gutterBottom>Top Industry Keywords:</Typography>
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {Industry_Specific_Suggestions.Industry_Keywords.slice(0, 15).map((keyword, index) => (
+                  <Chip key={index} label={keyword} color="primary" size="small" />
+                ))}
+              </Box>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
+              <Typography variant="subtitle1" gutterBottom>Section Importance</Typography>
+              <Box height={250}>
+                <Radar data={radarData} options={{ maintainAspectRatio: false }} />
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
       </Box>
     );
   };
@@ -239,14 +350,15 @@ const AnalyzeResumeStructure = () => {
       display: 'flex',
       alignItems: 'center',
       background: 'linear-gradient(120deg, #8b5cf6 0%, #3b82f6 100%)',
+      py: 4,
     }}>
-      <Container maxWidth="md">
+      <Container maxWidth="lg">
         <Fade in={true}>
           <Paper elevation={3} sx={{ p: 4, borderRadius: '16px' }}>
             <Typography variant="h4" component="h1" gutterBottom align="center">
-              Analyze Resume Structure
+              Resume Structure Analysis
             </Typography>
-            <Box mb={3}>
+            <Box mb={3} display="flex" justifyContent="center">
               <input
                 accept=".pdf,.docx"
                 style={{ display: 'none' }}
@@ -264,26 +376,28 @@ const AnalyzeResumeStructure = () => {
                 </Button>
               </label>
               {file && (
-                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
                   <CheckCircleOutline sx={{ color: 'green', mr: 1 }} />
                   <Typography variant="body2">{file.name}</Typography>
                 </Box>
               )}
             </Box>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={!file || loading}
-              sx={{
-                bgcolor: '#8b5cf6',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: '#7c3aed',
-                },
-              }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Analyze Resume'}
-            </Button>
+            <Box display="flex" justifyContent="center" mb={4}>
+              <Button
+                variant="contained"
+                onClick={handleSubmit}
+                disabled={!file || loading}
+                sx={{
+                  bgcolor: '#8b5cf6',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: '#7c3aed',
+                  },
+                }}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Analyze Resume'}
+              </Button>
+            </Box>
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
@@ -291,45 +405,29 @@ const AnalyzeResumeStructure = () => {
             )}
             {analysis && (
               <Fade in={true} timeout={1000}>
-                <Box mt={4}>
-                  <Typography variant="h5" gutterBottom sx={{ color: '#8b5cf6' }}>
-                    Analysis Results
-                  </Typography>
-                  {renderMetrics()}
-                  <Divider sx={{ my: 3 }} />
-                  <Typography variant="h6" gutterBottom>Overall Assessment</Typography>
-                  <Typography variant="body1" paragraph>{analysis.Overall_Assessment}</Typography>
-                  {renderContentAnalysis()}
-                  <Divider sx={{ my: 3 }} />
-                  {renderAnalysisSection('Strengths', analysis.Strengths, <CheckCircleIcon color="success" />)}
-                  {renderAnalysisSection('Areas for Improvement', analysis['Areas for Improvement'], <WarningIcon color="warning" />)}
-                  {renderAnalysisSection('Recommendations', analysis.Recommendations, <InfoIcon color="info" />)}
+                <Box>
+                  {renderATSScore()}
+                  {renderContentMetrics()}
+                  {renderStrengthsAndImprovements()}
+                  <Divider sx={{ my: 4 }} />
+                  {renderKeywordsAnalysis()}
+                  {renderSectionOrder()}
+                  {renderATSFriendlyStructure()}
+                  {renderIndustrySpecificSuggestions()}
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography>Overall Assessment</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography variant="body1">{analysis.Overall_Assessment}</Typography>
+                    </AccordionDetails>
+                  </Accordion>
                 </Box>
               </Fade>
             )}
           </Paper>
         </Fade>
       </Container>
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        aria-labelledby="metric-modal-title"
-        aria-describedby="metric-modal-description"
-      >
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 400,
-          bgcolor: 'background.paper',
-          boxShadow: 24,
-          p: 4,
-          borderRadius: '8px'
-        }}>
-          {renderModalContent()}
-        </Box>
-      </Modal>
     </Box>
   );
 };
