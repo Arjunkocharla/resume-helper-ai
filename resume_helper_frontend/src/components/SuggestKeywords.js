@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Container, Typography, Button, TextField, Paper, Box, CircularProgress,
   Alert, Fade, Card, CardContent, Chip, Tooltip, IconButton, useTheme,
@@ -33,11 +33,9 @@ function SuggestKeywords() {
     setJobDescription(e.target.value);
   };
 
-  useEffect(() => {
-    if (jobDescription.length > 0) {
-      setActiveStep(2);
-    }
-  }, [jobDescription]);
+  const handleNextStep = () => {
+    setActiveStep((prevStep) => prevStep + 1);
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -113,25 +111,42 @@ function SuggestKeywords() {
     {
       label: 'Enter Job Description',
       content: (
-        <TextField
-          fullWidth
-          label="Job Description"
-          variant="outlined"
-          value={jobDescription}
-          onChange={handleJobDescriptionChange}
-          multiline
-          rows={6}
-          sx={{ 
-            mt: 2,
-            '& .MuiOutlinedInput-root': {
-              '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-              '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
-              '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
-            },
-            '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-            '& .MuiInputBase-input': { color: 'white' },
-          }}
-        />
+        <Box>
+          <TextField
+            fullWidth
+            label="Job Description"
+            variant="outlined"
+            value={jobDescription}
+            onChange={handleJobDescriptionChange}
+            multiline
+            rows={6}
+            sx={{ 
+              mt: 2,
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
+                '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
+              },
+              '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
+              '& .MuiInputBase-input': { color: 'white' },
+            }}
+          />
+          <Button
+            onClick={handleNextStep}
+            variant="contained"
+            disabled={!jobDescription.trim()}
+            sx={{
+              mt: 2,
+              bgcolor: theme.palette.primary.main,
+              color: 'white',
+              '&:hover': {
+                bgcolor: theme.palette.primary.dark,
+              },
+            }}
+          >
+            Next
+          </Button>
+        </Box>
       ),
     },
     {
