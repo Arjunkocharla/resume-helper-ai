@@ -11,8 +11,6 @@ import re
 app = Flask(__name__)
 CORS(app)
 
-
-
 client = anthropic.Anthropic()
 
 # Configure upload folder and allowed extensions
@@ -33,26 +31,43 @@ def extract_text(file_path):
         raise ValueError('Unsupported file format')
 
 def analyze_keywords_with_claude(resume_text, job_category):
-    prompt = f"""As an HR specialist, analyze this resume for a {job_category} position.
-    1. Identify the top 10 most relevant keywords or phrases for this job category.
-    2. Based on these keywords and the resume content, generate 5 impactful, ready-to-use bullet points 
-    that the candidate could directly add to their resume. These points should integrate the keywords 
-    and be tailored to the {job_category} position.
+    prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
+
+    1. Identify the top 10 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
+    2. For each keyword, provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
+    3. Based on these keywords and the resume content, generate 5 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
+       - Integrate the identified keywords naturally
+       - Be tailored specifically to the {job_category} position
+       - Highlight quantifiable achievements where possible
+       - Use strong action verbs
+       - Demonstrate the candidate's impact and value in previous roles
 
     Resume text:
     {resume_text}
 
     Provide the output in this JSON format:
     {{
-      "keywords": ["keyword1", "keyword2", ...],
-      "bullet_points": ["Ready-to-use point 1", "Ready-to-use point 2", ...]
+      "keywords": [
+        {{
+          "keyword": "string",
+          "importance": "string"
+        }},
+        ...
+      ],
+      "bullet_points": [
+        {{
+          "point": "string",
+          "explanation": "string"
+        }},
+        ...
+      ]
     }}
     """
 
     response = client.messages.create(
         model="claude-3-haiku-20240307",
-        max_tokens=1000,
-        temperature=0.3,
+        max_tokens=1500,
+        temperature=0.2,
         messages=[
             {
                 "role": "user",
@@ -88,20 +103,22 @@ def analyze_resume_structure():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As an expert resume analyst and ATS specialist, analyze the following resume with a focus on ATS compatibility and keyword optimization. Provide a structured response in JSON format. The JSON should include:
+    prompt = f"""As a senior resume analyst and ATS expert with extensive experience in multiple industries, conduct a comprehensive analysis of the following resume. Focus on ATS compatibility, keyword optimization, and industry-specific best practices. Provide a structured response in JSON format with the following components:
 
-    1. "ATS_Compatibility_Score": An integer from 1-100 assessing how well the resume would perform in ATS scans.
+    1. "ATS_Compatibility_Score": An integer from 1-100 assessing how well the resume would perform in ATS scans. Consider factors such as formatting, use of standard section headings, and keyword relevance.
 
     2. "Keywords_Analysis": {{
-        "Present_Keywords": An array of all relevant keywords found in the resume.
-        "Missing_Keywords": An array of important industry-standard keywords not present in the resume.
+        "Present_Keywords": An array of all relevant keywords found in the resume, sorted by importance.
+        "Missing_Keywords": An array of important industry-standard keywords not present in the resume, based on the inferred job category.
         "Keyword_Density": A string representing the overall keyword density (e.g., "15.3%").
+        "Keyword_Distribution": An object showing the distribution of keywords across different resume sections.
     }}
 
     3. "ATS_Friendly_Structure": {{
         "Format_Score": An integer from 1-10 assessing how ATS-friendly the resume format is.
         "Section_Order": An array of strings representing the current order of resume sections.
         "Recommended_Section_Order": An array of strings suggesting the ideal ATS-friendly section order.
+        "Formatting_Issues": An array of specific formatting issues that could hinder ATS parsing.
     }}
 
     4. "Content_Analysis": {{
@@ -109,35 +126,40 @@ def analyze_resume_structure():
         "Bullet_Points_Count": An integer.
         "Action_Verbs_Count": An integer.
         "Quantifiable_Achievements_Count": An integer.
+        "Average_Bullet_Length": A float representing the average number of words per bullet point.
+        "Skills_Section_Analysis": An object analyzing the effectiveness of the skills section.
     }}
 
-    5. "ATS_Optimization_Tips": An array of strings with specific, actionable recommendations to improve ATS compatibility and keyword usage.
+    5. "ATS_Optimization_Tips": An array of strings with specific, actionable recommendations to improve ATS compatibility and keyword usage. Prioritize the top 5 most impactful changes.
 
-    6. "Strengths": An array of strings highlighting the resume's strong points.
+    6. "Strengths": An array of strings highlighting the resume's strong points, focusing on elements that would appeal to both ATS systems and human recruiters.
 
     7. "Industry_Specific_Suggestions": {{
         "Inferred_Industry": A string indicating the primary industry or job category this resume targets.
-        "Industry_Keywords": An array of 20-30 highly relevant industry-specific keywords to consider incorporating.
-        "Industry_Specific_Tips": An array of strings with industry-specific advice for ATS optimization.
+        "Industry_Keywords": An array of 20-30 highly relevant industry-specific keywords to consider incorporating, ranked by importance.
+        "Industry_Specific_Tips": An array of strings with industry-specific advice for ATS optimization and standing out in the inferred field.
+        "Emerging_Trends": An array of 3-5 emerging trends or skills in the inferred industry that could enhance the resume.
     }}
 
-    8. "Overall_Assessment": A string (3-4 sentences) evaluating the resume's effectiveness for ATS, highlighting major strengths and areas for improvement.
+    8. "Overall_Assessment": A string (3-4 sentences) evaluating the resume's effectiveness for ATS and human review, highlighting major strengths and areas for improvement. Provide a clear, actionable next step for the candidate.
 
     9. "Industry_Standards": {{
         "Word_Count_Range": A string representing the typical word count range for resumes in this industry (e.g., "400-600").
         "Keyword_Density_Range": A string representing the ideal keyword density range (e.g., "2%-3.5%").
         "Bullet_Points_Range": A string representing the ideal number of bullet points (e.g., "15-25").
-        "Sections_Importance": An object with section names as keys and importance scores (1-10) as values.
+        "Sections_Importance": An object with section names as keys and importance scores (1-10) as values, tailored to the inferred industry.
         "Key_Action_Verbs": An array of 10-15 powerful action verbs commonly used in top resumes for this industry.
         "Ideal_Quantifiable_Achievements": An integer representing the ideal number of quantifiable achievements.
         "File_Format_Preference": A string indicating the preferred file format(s) for ATS (e.g., "PDF, DOCX").
         "Optimal_Length_Pages": A string representing the ideal resume length in pages (e.g., "1-2").
     }}
 
+    10. "Tailored_Improvement_Plan": An array of 3-5 specific, prioritized steps the candidate should take to improve their resume's effectiveness, based on the analysis.
+
     Resume Text:
     {resume_text}
 
-    Ensure all output is ATS-friendly and focused on maximizing the resume's performance in automated screening systems. The JSON should be valid and parseable without errors. Do not include any text outside of the JSON structure.
+    Ensure all output is ATS-friendly, industry-specific, and focused on maximizing the resume's performance in both automated screening systems and human review. The JSON should be valid and parseable without errors. Do not include any text outside of the JSON structure.
     """
 
     try:
@@ -205,10 +227,11 @@ def analyze_keywords():
 
 @app.route('/analyze_resume_length', methods=['POST'])
 def analyze_resume_length():
-    if 'resume' not in request.files:
-        return jsonify({'error': 'Resume file is required.'}), 400
+    if 'resume' not in request.files or 'job_category' not in request.form:
+        return jsonify({'error': 'Resume file and job category are required.'}), 400
 
     file = request.files['resume']
+    job_category = request.form['job_category']
 
     if file.filename == '':
         return jsonify({'error': 'No selected file.'}), 400
@@ -222,39 +245,66 @@ def analyze_resume_length():
         resume_text = extract_text(file_path)
         word_count = len(resume_text.split())
 
-        # Define ideal word count ranges based on industry standards
-        # This can be more dynamic based on job category if needed
-        ideal_min = 500
-        ideal_max = 1000
-
-        difference = word_count - ideal_max if word_count > ideal_max else ideal_min - word_count
-
         # Crafting the prompt
-        prompt = (
-            f"You are an experienced career advisor. Analyze the following resume text and determine if the length "
-            f"is optimal for making a strong impression for a professional job application. "
-            f"Provide the word count and advise whether it is too short, too long, or just right. If adjustments are needed, "
-            f"suggest how to improve it.\n\n{resume_text}"
-        )
+        prompt = f"""As an expert career advisor specializing in the {job_category} industry, analyze the following resume text and determine if the length is optimal for making a strong impression in this specific field. Consider current industry standards and expectations for the {job_category} sector.
+
+        1. Provide a detailed analysis of the resume length, including:
+           - The current word count
+           - The ideal word count range for {job_category} resumes
+           - Whether the resume is too short, too long, or just right
+           - The impact of the current length on ATS scans and human readability
+
+        2. If adjustments are needed, suggest specific ways to improve the resume length, such as:
+           - Sections to expand or condense
+           - Types of information to add or remove
+           - Strategies for concise yet impactful writing in the {job_category} field
+
+        3. Explain how the optimal length contributes to the overall effectiveness of the resume for {job_category} positions.
+
+        4. Provide 2-3 industry-specific tips for balancing comprehensiveness with conciseness in {job_category} resumes.
+
+        Resume Text:
+        {resume_text}
+
+        Format your response as a JSON object with the following structure:
+        {{
+          "current_word_count": integer,
+          "ideal_word_count_range": "string",
+          "length_assessment": "string",
+          "ats_impact": "string",
+          "human_readability_impact": "string",
+          "improvement_suggestions": [
+            "string",
+            ...
+          ],
+          "length_importance_explanation": "string",
+          "industry_specific_tips": [
+            "string",
+            ...
+          ]
+        }}
+        """
 
         try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1000,
+                temperature=0.3,
                 messages=[
-                    {"role": "system", "content": "You are an experienced career advisor."},
                     {"role": "user", "content": prompt}
-                ],
-                max_tokens=200,
-                temperature=0.3
+                ]
             )
 
-            analysis_text = response.choices[0].message.content.strip()
+            # Extract the JSON part from the response
+            response_content = response.content[0].text
+            json_start = response_content.find('{')
+            json_end = response_content.rfind('}') + 1
+            analysis = json.loads(response_content[json_start:json_end])
 
-            return jsonify({
-                'word_count': word_count,
-                'analysis': analysis_text
-            }), 200
+            return jsonify(analysis), 200
 
+        except json.JSONDecodeError as e:
+            return jsonify({'error': f'Failed to parse JSON: {str(e)}'}), 500
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
@@ -281,11 +331,19 @@ def suggest_keywords():
         resume_text = extract_text(file_path)
 
         # Crafting a detailed prompt
-        prompt = f"""You are a career counselor assisting with optimizing resumes. Given the following resume text and job description, 
-        suggest 5 keywords that would enhance the resume's relevance and effectiveness for the job role. 
-        For each keyword:
-        1. Provide a brief explanation of why it's important (1-2 sentences)
-        2. Suggest a bullet point or sentence incorporating the keyword that the user could add to their resume.
+        prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest highly effective keywords that will enhance the resume's relevance and ATS performance for this specific role. Consider industry trends, job market demands, and ATS optimization strategies in your analysis.
+
+        For each suggested keyword:
+        1. Provide a detailed explanation of its importance, including:
+           - Relevance to the job description
+           - Significance in the industry
+           - Potential impact on ATS ranking
+        2. Suggest a specific, impactful bullet point or sentence incorporating the keyword that the user could add to their resume. This suggestion should:
+           - Be tailored to the candidate's experience (as seen in the resume)
+           - Use strong action verbs
+           - Include quantifiable achievements where possible
+           - Demonstrate the candidate's value and impact
+        3. Recommend the best section of the resume to include this keyword-enhanced content.
 
         Resume Text:
         {resume_text}
@@ -297,19 +355,23 @@ def suggest_keywords():
         {{
           "keywords": [
             {{
-              "keyword": "Example Keyword",
-              "explanation": "Brief explanation of importance",
-              "suggestion": "Example bullet point or sentence"
+              "keyword": "string",
+              "importance": "string",
+              "suggestion": "string",
+              "placement": "string"
             }},
             ...
-          ]
+          ],
+          "overall_strategy": "string"
         }}
+
+        Provide 5-7 keyword suggestions, and include an "overall_strategy" field with a brief paragraph on how to effectively incorporate these keywords throughout the resume for maximum ATS and human reader impact.
         """
 
         try:
             response = client.messages.create(
                 model="claude-3-haiku-20240307",
-                max_tokens=1000,
+                max_tokens=2000,
                 temperature=0.3,
                 messages=[
                     {
@@ -327,7 +389,7 @@ def suggest_keywords():
 
             return jsonify({
                 'job_description': job_description,
-                'keyword_suggestions': suggestions['keywords']
+                'keyword_suggestions': suggestions
             }), 200
 
         except json.JSONDecodeError as e:
