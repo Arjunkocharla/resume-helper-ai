@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Button, Typography, CircularProgress, Paper, Grid,
   List, ListItem, ListItemIcon, ListItemText, Divider,
   Container, Fade, Alert, LinearProgress, Tooltip,
   Accordion, AccordionSummary, AccordionDetails, Chip,
-  Card, CardContent, Step, Stepper, StepLabel, useTheme
+  Card, CardContent, Step, Stepper, StepLabel, StepContent, useTheme
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
@@ -15,7 +15,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   ThumbUp as ThumbUpIcon,
   Build as BuildIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  Description as DescriptionIcon,
+  Analytics as AnalyticsIcon,
+  CompareArrows as CompareArrowsIcon,
+  Lightbulb as LightbulbIcon
 } from '@mui/icons-material';
 import { Radar } from 'react-chartjs-2';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip, Legend } from 'chart.js';
@@ -27,7 +31,30 @@ const AnalyzeResumeStructure = () => {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [activeStep, setActiveStep] = useState(0);
   const theme = useTheme();
+
+  const loadingSteps = [
+    { label: 'Parsing resume', description: 'Extracting text and structure...', icon: <DescriptionIcon /> },
+    { label: 'Analyzing content', description: 'Evaluating resume components...', icon: <AnalyticsIcon /> },
+    { label: 'Comparing to standards', description: 'Checking against industry benchmarks...', icon: <CompareArrowsIcon /> },
+    { label: 'Generating insights', description: 'Crafting personalized recommendations...', icon: <LightbulbIcon /> },
+  ];
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      interval = setInterval(() => {
+        setActiveStep((prevStep) => {
+          if (prevStep < loadingSteps.length - 1) {
+            return prevStep + 1;
+          }
+          return prevStep;
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [loading, loadingSteps.length]);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -41,6 +68,7 @@ const AnalyzeResumeStructure = () => {
 
     setLoading(true);
     setError(null);
+    setActiveStep(0);
 
     const formData = new FormData();
     formData.append('resume', file);
@@ -63,6 +91,49 @@ const AnalyzeResumeStructure = () => {
       setLoading(false);
     }
   };
+
+  const renderLoadingState = () => (
+    <Box sx={{ maxWidth: 400, margin: 'auto', mt: 4 }}>
+      <Stepper activeStep={activeStep} orientation="vertical">
+        {loadingSteps.map((step, index) => (
+          <Step key={step.label}>
+            <StepLabel
+              icon={
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    bgcolor: index === activeStep ? 'primary.main' : 'rgba(255, 255, 255, 0.1)',
+                    color: index === activeStep ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                  }}
+                >
+                  {index === activeStep ? (
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  ) : (
+                    index < activeStep ? <CheckCircleIcon /> : step.icon
+                  )}
+                </Box>
+              }
+            >
+              <Typography sx={{ color: 'white' }}>{step.label}</Typography>
+            </StepLabel>
+            <StepContent>
+              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>{step.description}</Typography>
+              {index === activeStep && (
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <LinearProgress />
+                </Box>
+              )}
+            </StepContent>
+          </Step>
+        ))}
+      </Stepper>
+    </Box>
+  );
 
   const renderUploadSection = () => (
     <Box
@@ -142,7 +213,7 @@ const AnalyzeResumeStructure = () => {
               },
             }}
           >
-            {loading ? <CircularProgress size={24} /> : 'Analyze Resume'}
+            {loading ? 'Analyzing...' : 'Analyze Resume'}
           </Button>
         </Box>
         {file && (
@@ -299,17 +370,6 @@ const AnalyzeResumeStructure = () => {
               </Box>
             </Paper>
           </Grid>
-          <Grid item xs={12}>
-            <Paper elevation={2} sx={{ p: 2 }}>
-              <Typography variant="subtitle1">Term Density</Typography>
-              <Box display="flex" alignItems="center">
-                <Typography variant="h5" color="primary" mr={2}>{Keywords_Analysis.Keyword_Density}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Industry Range: {Industry_Standards.Keyword_Density_Range}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
         </Grid>
       </Box>
     );
@@ -449,6 +509,7 @@ const AnalyzeResumeStructure = () => {
             {error}
           </Alert>
         )}
+        {loading && renderLoadingState()}
         {analysis && (
           <Fade in={true} timeout={1000}>
             <Box

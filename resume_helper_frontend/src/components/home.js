@@ -62,13 +62,52 @@ function Home() {
     },
   ];
 
+  const cubStyle = {
+    position: 'absolute',
+    width: '60px',
+    height: '60px',
+    borderRadius: '12px',
+    background: 'rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    animation: 'float 6s ease-in-out infinite',
+  };
+
   return (
     <Box sx={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
       display: 'flex',
       flexDirection: 'column',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      {/* Cubs */}
+      <Box sx={{
+        ...cubStyle,
+        top: '10%',
+        left: '5%',
+        animationDelay: '0s',
+      }} />
+      <Box sx={{
+        ...cubStyle,
+        top: '70%',
+        left: '10%',
+        animationDelay: '1s',
+      }} />
+      <Box sx={{
+        ...cubStyle,
+        top: '20%',
+        right: '5%',
+        animationDelay: '2s',
+      }} />
+      <Box sx={{
+        ...cubStyle,
+        bottom: '15%',
+        right: '10%',
+        animationDelay: '3s',
+      }} />
+
       <AppBar 
         position="static" 
         elevation={0}
@@ -89,7 +128,7 @@ function Home() {
           </IconButton>
         </Toolbar>
       </AppBar>
-      <Container maxWidth="lg" sx={{ mt: 8, mb: 4, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+      <Container maxWidth="lg" sx={{ mt: 8, mb: 4, flexGrow: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
         <Box sx={{ textAlign: 'center', mb: 8 }}>
           <Typography variant="h2" gutterBottom sx={{ color: 'white', fontWeight: 'bold', mb: 2 }}>
             Elevate Your Resume
@@ -119,9 +158,11 @@ function Home() {
                   cursor: 'pointer',
                   overflow: 'hidden',
                   position: 'relative',
-                  transform: hoveredCard === index || option.primary ? 'scale(1.05)' : 'scale(1)',
-                  zIndex: hoveredCard === index || option.primary ? 2 : 1,
-                  boxShadow: hoveredCard === index || option.primary ? `0 20px 30px rgba(0, 0, 0, 0.2)` : 'none',
+                  transform: hoveredCard === index ? 'scale(1.05)' : 'scale(1)',
+                  zIndex: hoveredCard === index ? 2 : 1,
+                  boxShadow: hoveredCard === index ? `0 20px 30px rgba(0, 0, 0, 0.2)` : 'none',
+                  filter: hoveredCard !== null && hoveredCard !== index ? 'blur(4px)' : 'none',
+                  opacity: hoveredCard !== null && hoveredCard !== index ? 0.6 : 1,
                   '&:hover': {
                     transform: 'scale(1.05)',
                     boxShadow: `0 20px 30px rgba(0, 0, 0, 0.2)`,
@@ -184,6 +225,19 @@ function Home() {
           ))}
         </Grid>
       </Container>
+      <style jsx global>{`
+        @keyframes float {
+          0% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(10deg);
+          }
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+        }
+      `}</style>
     </Box>
   );
 }
