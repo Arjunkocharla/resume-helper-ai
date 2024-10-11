@@ -14,11 +14,14 @@ import {
   Chip,
   Tooltip,
   IconButton,
+  Grid,
+  Divider,
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
   CheckCircleOutline,
   ContentCopy,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 
 function SuggestKeywords() {
@@ -81,109 +84,127 @@ function SuggestKeywords() {
       display: 'flex',
       alignItems: 'center',
       background: 'linear-gradient(120deg, #8b5cf6 0%, #3b82f6 100%)',
+      py: 4,
     }}>
-      <Container maxWidth="md">
+      <Container maxWidth="lg">
         <Fade in={true}>
           <Paper elevation={3} sx={{ p: 4, borderRadius: '16px' }}>
-            <Typography variant="h4" component="h1" gutterBottom align="center">
-              Suggest Keywords Based on Job Description
+            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
+              Optimize Your Resume with AI-Powered Keyword Suggestions
             </Typography>
-            <form onSubmit={handleSubmit}>
-              <Box sx={{ mb: 2 }}>
-                <input
-                  accept=".pdf,.docx"
-                  style={{ display: 'none' }}
-                  id="raised-button-file"
-                  type="file"
-                  onChange={handleFileChange}
-                />
-                <label htmlFor="raised-button-file">
-                  <Button
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={6}>
+                <form onSubmit={handleSubmit}>
+                  <Box sx={{ mb: 3 }}>
+                    <input
+                      accept=".pdf,.docx"
+                      style={{ display: 'none' }}
+                      id="raised-button-file"
+                      type="file"
+                      onChange={handleFileChange}
+                    />
+                    <label htmlFor="raised-button-file">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        startIcon={<CloudUploadIcon />}
+                        fullWidth
+                      >
+                        Upload Resume
+                      </Button>
+                    </label>
+                    {file && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <CheckCircleOutline sx={{ color: 'green', mr: 1 }} />
+                        <Typography variant="body2">{file.name}</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Job Description"
                     variant="outlined"
-                    component="span"
-                    startIcon={<CloudUploadIcon />}
+                    value={jobDescription}
+                    onChange={handleJobDescriptionChange}
+                    multiline
+                    rows={6}
+                    sx={{ mb: 3 }}
+                  />
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={loading}
+                    fullWidth
+                    sx={{
+                      bgcolor: '#8b5cf6',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: '#7c3aed',
+                      },
+                    }}
                   >
-                    Upload Resume
+                    {loading ? <CircularProgress size={24} /> : 'Get Suggestions'}
                   </Button>
-                </label>
-                {file && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                    <CheckCircleOutline sx={{ color: 'green', mr: 1 }} />
-                    <Typography variant="body2">{file.name}</Typography>
+                </form>
+                {error && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {error}
+                  </Alert>
+                )}
+              </Grid>
+              <Grid item xs={12} md={6}>
+                {suggestions ? (
+                  <Fade in={true} timeout={1000}>
+                    <Box>
+                      <Typography variant="h5" gutterBottom sx={{ color: '#8b5cf6' }}>
+                        Suggested Keywords:
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
+                        {suggestions.map((suggestion, index) => (
+                          <Chip 
+                            key={index} 
+                            label={suggestion.keyword} 
+                            color="primary" 
+                            sx={{ bgcolor: '#8b5cf6' }} 
+                          />
+                        ))}
+                      </Box>
+                      <Box sx={{ maxHeight: '60vh', overflowY: 'auto', pr: 2 }}>
+                        {suggestions.map((suggestion, index) => (
+                          <Card key={index} sx={{ mb: 2, bgcolor: '#f3f4f6' }}>
+                            <CardContent>
+                              <Typography variant="h6" gutterBottom>
+                                {suggestion.keyword}
+                              </Typography>
+                              <Typography variant="body2" paragraph>
+                                {suggestion.explanation}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
+                                  {suggestion.suggestion}
+                                </Typography>
+                                <Tooltip title="Copy to clipboard">
+                                  <IconButton onClick={() => copyToClipboard(suggestion.suggestion)}>
+                                    <ContentCopy />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Fade>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <InfoIcon sx={{ fontSize: 60, color: '#8b5cf6', mb: 2 }} />
+                    <Typography variant="h6" align="center" sx={{ color: '#4b5563' }}>
+                      Upload your resume and paste the job description to get AI-powered keyword suggestions
+                    </Typography>
                   </Box>
                 )}
-              </Box>
-              <TextField
-                fullWidth
-                label="Job Description"
-                variant="outlined"
-                value={jobDescription}
-                onChange={handleJobDescriptionChange}
-                multiline
-                rows={4}
-                sx={{ mb: 2 }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  bgcolor: '#8b5cf6',
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: '#7c3aed',
-                  },
-                }}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Get Suggestions'}
-              </Button>
-            </form>
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
-            {suggestions && (
-              <Fade in={true} timeout={1000}>
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="h5" gutterBottom sx={{ color: '#8b5cf6' }}>
-                    Suggested Keywords:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {suggestions.map((suggestion, index) => (
-                      <Chip 
-                        key={index} 
-                        label={suggestion.keyword} 
-                        color="primary" 
-                        sx={{ bgcolor: '#8b5cf6' }} 
-                      />
-                    ))}
-                  </Box>
-                  {suggestions.map((suggestion, index) => (
-                    <Card key={index} sx={{ mb: 2, bgcolor: '#f3f4f6' }}>
-                      <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                          {suggestion.keyword}
-                        </Typography>
-                        <Typography variant="body2" paragraph>
-                          {suggestion.explanation}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
-                            {suggestion.suggestion}
-                          </Typography>
-                          <Tooltip title="Copy to clipboard">
-                            <IconButton onClick={() => copyToClipboard(suggestion.suggestion)}>
-                              <ContentCopy />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
-              </Fade>
-            )}
+              </Grid>
+            </Grid>
           </Paper>
         </Fade>
       </Container>
