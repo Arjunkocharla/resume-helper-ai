@@ -33,14 +33,15 @@ def extract_text(file_path):
 def analyze_keywords_with_claude(resume_text, job_category):
     prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
 
-    1. Identify the top 10 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
-    2. For each keyword, provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
-    3. Based on these keywords and the resume content, generate 5 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
-       - Integrate the identified keywords naturally
-       - Be tailored specifically to the {job_category} position
-       - Highlight quantifiable achievements where possible
-       - Use strong action verbs
-       - Demonstrate the candidate's impact and value in previous roles
+    1. Identify the top 5-7 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
+    2. For each keyword:
+       a. Provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
+       b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
+          - Integrate the identified keyword naturally
+          - Be tailored specifically to the {job_category} position and the candidate's experience
+          - Highlight quantifiable achievements where possible
+          - Use strong action verbs
+          - Demonstrate the candidate's impact and value in previous roles
 
     Resume text:
     {resume_text}
@@ -50,14 +51,14 @@ def analyze_keywords_with_claude(resume_text, job_category):
       "keywords": [
         {{
           "keyword": "string",
-          "importance": "string"
-        }},
-        ...
-      ],
-      "bullet_points": [
-        {{
-          "point": "string",
-          "explanation": "string"
+          "importance": "string",
+          "bullet_points": [
+            {{
+              "point": "string",
+              "explanation": "string"
+            }},
+            ...
+          ]
         }},
         ...
       ]
@@ -66,7 +67,7 @@ def analyze_keywords_with_claude(resume_text, job_category):
 
     response = client.messages.create(
         model="claude-3-haiku-20240307",
-        max_tokens=1500,
+        max_tokens=2000,
         temperature=0.2,
         messages=[
             {
