@@ -35,7 +35,7 @@ function SignupPage() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       // You might want to update the user profile with the name here
-      navigate('/home');
+      navigate('/welcome');
     } catch (error) {
       setError(error.message);
     } finally {

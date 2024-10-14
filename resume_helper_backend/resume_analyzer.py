@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from pdfminer.high_level import extract_text as extract_pdf_text
 from docx import Document
@@ -7,6 +7,19 @@ from flask_cors import CORS
 import json
 import anthropic
 import re
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+import io
+import tempfile
+import time
+
+import os
+from flask import send_file, request, jsonify
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from b2sdk.v2.exception import B2Error
+from urllib.parse import urlencode
+import boto3
+from botocore.client import Config
+from flask import jsonify, request
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +30,12 @@ client = anthropic.Anthropic()
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Backblaze B2 API credentials
+B2_KEY_ID = '005d3c7f95f288a0000000003'
+B2_APPLICATION_KEY = 'K005TV1kYLxK8fQm6MHvZUHM50Zeq/0'
+B2_BUCKET_NAME = 'resume-helper'
+B2_ENDPOINT = 'https://s3.us-east-005.backblazeb2.com'
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -400,6 +419,174 @@ def suggest_keywords():
 
     else:
         return jsonify({'error': 'Invalid file type. Only PDF and DOCX are allowed.'}), 400
+
+@app.route('/upload_resume', methods=['POST'])
+def upload_resume():
+    if 'resume' not in request.files:
+        return jsonify({'error': 'Resume file is required.'}), 400
+
+    file = request.files['resume']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file.'}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        
+        try:
+            # Initialize B2 API
+            info = InMemoryAccountInfo()
+            b2_api = B2Api(info)
+            b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+
+            # Get the bucket
+            bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+
+            # Upload the file
+            file_data = file.read()
+            file_info = bucket.upload_bytes(
+                data_bytes=file_data,
+                file_name=filename,
+                content_type=file.content_type
+            )
+
+            # Verify the upload
+            if not file_info or not file_info.id_:
+                raise Exception("File upload failed: No file info returned")
+
+            # Get the file URL
+            download_url = b2_api.get_download_url_for_fileid(file_info.id_)
+
+            # Verify the download URL
+            if not download_url:
+                raise Exception("Failed to generate download URL")
+
+            # Use b2_api to get file info instead of bucket
+            file_metadata = b2_api.get_file_info(file_info.id_)
+
+            return jsonify({
+                'message': 'File uploaded successfully',
+                'filename': filename,
+                'file_id': file_info.id_,
+                'download_url': download_url,
+                'file_size': file_metadata.size if file_metadata else None
+            }), 200
+
+        except Exception as e:
+            app.logger.error(f"Upload error: {str(e)}")
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+    else:
+        return jsonify({'error': 'Invalid file type. Only PDF, DOC, and DOCX are allowed.'}), 400
+
+import os
+from flask import send_file, request, jsonify
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from b2sdk.v2.exception import B2Error
+import io
+
+@app.route('/download_resume', methods=['GET'])
+def download_resume():
+    file_id = request.args.get('file_id')
+    
+    if not file_id:
+        return jsonify({'error': 'file_id is required'}), 400
+
+    try:
+        # Initialize B2 API
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+
+        # Get file info
+        file_info = b2_api.get_file_info(file_id)
+
+        if not file_info:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Get the bucket
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+
+        # Download the file to a BytesIO object
+        download_buffer = io.BytesIO()
+        bucket.download_file_by_id(file_id, download_buffer)
+        download_buffer.seek(0)
+
+        # Send the file
+        return send_file(
+            download_buffer,
+            as_attachment=True,
+            download_name=file_info.file_name,
+            mimetype=file_info.content_type
+        )
+
+    except B2Error as e:
+        app.logger.error(f"B2 API Error: {str(e)}")
+        return jsonify({
+            'error': f'B2 API Error: {str(e)}',
+            'file_id': file_id
+        }), 500
+    except Exception as e:
+        app.logger.error(f"Download error: {str(e)}")
+        return jsonify({
+            'error': f'Download failed: {str(e)}',
+            'file_id': file_id
+        }), 500
+
+@app.route('/get_resume_download_url', methods=['GET'])
+def get_resume_download_url():
+    file_id = request.args.get('file_id')
+    
+    if not file_id:
+        return jsonify({'error': 'file_id is required'}), 400
+
+    try:
+        # Initialize B2 API to get file info
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+
+        # Get file info
+        file_info = b2_api.get_file_info(file_id)
+
+        if not file_info:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Use boto3 to generate pre-signed URL
+        s3_client = boto3.client(
+            's3',
+            endpoint_url='https://s3.us-east-005.backblazeb2.com', # Adjust the endpoint URL if necessary
+            aws_access_key_id=B2_KEY_ID,
+            aws_secret_access_key=B2_APPLICATION_KEY,
+            config=Config(signature_version='s3v4')
+        )
+
+        duration_in_seconds = 3600  # 1 hour
+
+        # Generate the pre-signed URL
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': B2_BUCKET_NAME,
+                'Key': file_info.file_name
+            },
+            ExpiresIn=duration_in_seconds
+        )
+
+        return jsonify({
+            'download_url': presigned_url,
+            'filename': file_info.file_name,
+            'content_type': file_info.content_type,
+            'size': file_info.size,
+            'expires_in': duration_in_seconds
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error generating pre-signed URL: {str(e)}")
+        return jsonify({
+            'error': f'Failed to generate pre-signed URL: {str(e)}',
+            'file_id': file_id
+        }), 500
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist

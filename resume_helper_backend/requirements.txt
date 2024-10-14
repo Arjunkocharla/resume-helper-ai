@@ -5,3 +5,7 @@ python-docx
 flask-cors
 anthropic
 Werkzeug
+b2sdk
+firebase-admin
+boto3
+python-dotenv
