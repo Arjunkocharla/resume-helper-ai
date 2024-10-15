@@ -11,7 +11,7 @@ from b2sdk.v2 import InMemoryAccountInfo, B2Api
 import io
 import tempfile
 import time
-
+from dotenv import load_dotenv
 import os
 from flask import send_file, request, jsonify
 from b2sdk.v2 import InMemoryAccountInfo, B2Api
@@ -23,7 +23,7 @@ from flask import jsonify, request
 
 app = Flask(__name__)
 CORS(app)
-
+load_dotenv()
 client = anthropic.Anthropic()
 
 # Configure upload folder and allowed extensions
@@ -49,39 +49,39 @@ def extract_text(file_path):
         raise ValueError('Unsupported file format')
 
 def analyze_keywords_with_claude(resume_text, job_category):
-    prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
+    prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position, specifically for a Lead ML Engineer role.
 
-    1. Identify the top 5-7 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
-    2. For each keyword:
-       a. Provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
-       b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
-          - Integrate the identified keyword naturally
-          - Be tailored specifically to the {job_category} position and the candidate's experience
-          - Highlight quantifiable achievements where possible
-          - Use strong action verbs
-          - Demonstrate the candidate's impact and value in previous roles
+1. Identify the top 5-7 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
+2. For each keyword:
+   a. Provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
+   b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could realistically add to their resume. These points should:
+      - Integrate the identified keyword naturally
+      - Be tailored specifically to the {job_category} position and the candidate's experience level (e.g., if the candidate is an entry-level or junior engineer, focus on foundational skills, relevant coursework, internships, or projects rather than managerial or advanced technical skills)
+      - Highlight quantifiable achievements where possible, even if they are from academic projects or internships
+      - Use strong action verbs
+      - Demonstrate the candidate's potential impact and value in previous roles or projects
 
-    Resume text:
-    {resume_text}
+Resume text:
+{resume_text}
 
-    Provide the output in this JSON format:
+Provide the output in this JSON format:
+{{
+  "keywords": [
     {{
-      "keywords": [
+      "keyword": "string",
+      "importance": "string",
+      "bullet_points": [
         {{
-          "keyword": "string",
-          "importance": "string",
-          "bullet_points": [
-            {{
-              "point": "string",
-              "explanation": "string"
-            }},
-            ...
-          ]
+          "point": "string",
+          "explanation": "string"
         }},
         ...
       ]
-    }}
-    """
+    }},
+    ...
+  ]
+}}
+"""
 
     response = client.messages.create(
         model="claude-3-haiku-20240307",
