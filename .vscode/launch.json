@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Flask (resume_analyzer)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "resume_helper_backend/resume_analyzer.py",
+        "FLASK_ENV": "development"
+      },
+      "args": [
+        "run",
+        "--no-debugger",
+        "--port",
+        "5000"
+      ],
+      "jinja": true,
+      "python": "${workspaceFolder}/resume_helper_backend/resume_app_venv/bin/python"
+    },
+    {
+      "name": "Python: Flask (user_info_apis)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "resume_helper_backend/user_info_apis.py",
+        "FLASK_ENV": "development",
+        "GOOGLE_APPLICATION_CREDENTIALS": "${workspaceFolder}/resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json"
+      },
+      "args": [
+        "run",
+        "--no-debugger",
+        "--port",
+        "5001"
+      ],
+      "jinja": true,
+      "python": "${workspaceFolder}/resume_helper_backend/resume_app_venv/bin/python"
+    },
+    {
+      "name": "Debug React",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/resume_helper_frontend",
+      "sourceMapPathOverrides": {
+        "webpack:///src/*": "${webRoot}/src/*"
+      }
+    }
+  ]
+}
