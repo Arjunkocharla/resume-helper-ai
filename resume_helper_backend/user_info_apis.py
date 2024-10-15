@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'))
+cred = credentials.Certificate(json.loads(os.getenv('FIREBASE_CONFIG')))
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
