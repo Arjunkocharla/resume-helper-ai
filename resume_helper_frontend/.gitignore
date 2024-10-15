@@ -41,3 +41,7 @@ resume_helper_frontend/.env
 # Backend specific
 resume_helper_backend/resume_app_venv/
 resume_helper_backend/.env
+
+.env
+config.json
+resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json

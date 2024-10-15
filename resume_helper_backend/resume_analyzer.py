@@ -31,11 +31,10 @@ UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Backblaze B2 API credentials
-B2_KEY_ID = '005d3c7f95f288a0000000003'
-B2_APPLICATION_KEY = 'K005TV1kYLxK8fQm6MHvZUHM50Zeq/0'
-B2_BUCKET_NAME = 'resume-helper'
-B2_ENDPOINT = 'https://s3.us-east-005.backblazeb2.com'
+B2_KEY_ID = os.getenv('B2_KEY_ID')
+B2_APPLICATION_KEY = os.getenv('B2_APPLICATION_KEY')
+B2_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')
+B2_ENDPOINT = os.getenv('B2_ENDPOINT')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
