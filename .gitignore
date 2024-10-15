@@ -34,10 +34,12 @@ uploads/
 **/__pycache__/
 **/*.py[cod]
 **/*$py.class
-
+resume_helper_backend/py3.9venv/**
 resume_helper_backend/resume_app_venv/**
 .env
-*.json
+**/.vscode
 !package.json
 !package-lock.json
 resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json
+launch.json
+.vscode/launch.json

@@ -24,7 +24,7 @@ from flask import jsonify, request
 app = Flask(__name__)
 CORS(app)
 load_dotenv()
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Configure upload folder and allowed extensions
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
@@ -51,10 +51,10 @@ def extract_text(file_path):
 def analyze_keywords_with_claude(resume_text, job_category):
     prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position, specifically for a Lead ML Engineer role.
 
-1. Identify the top 5-7 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
+1. Identify the top 8-9 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
 2. For each keyword:
    a. Provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
-   b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could realistically add to their resume. These points should:
+   b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
       - Integrate the identified keyword naturally
       - Be tailored specifically to the {job_category} position and the candidate's experience level (e.g., if the candidate is an entry-level or junior engineer, focus on foundational skills, relevant coursework, internships, or projects rather than managerial or advanced technical skills)
       - Highlight quantifiable achievements where possible, even if they are from academic projects or internships
@@ -71,11 +71,8 @@ Provide the output in this JSON format:
       "keyword": "string",
       "importance": "string",
       "bullet_points": [
-        {{
-          "point": "string",
-          "explanation": "string"
-        }},
-        ...
+        "string",
+        "string"
       ]
     }},
     ...
@@ -350,19 +347,28 @@ def suggest_keywords():
         resume_text = extract_text(file_path)
 
         # Crafting a detailed prompt
-        prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest highly effective keywords that will enhance the resume's relevance and ATS performance for this specific role. Consider industry trends, job market demands, and ATS optimization strategies in your analysis.
+        prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest relevant keywords and improvements that will enhance the resume's relevance and ATS performance for this specific role. Consider the following:
+
+        1. The candidate's current experience level as shown in the resume
+        2. The requirements and level of the job description
+        3. Industry trends and job market demands
+        4. ATS optimization strategies
+
+        Based on this analysis:
+
+        1. Identify the experience gap between the resume and the job description.
+        2. Suggest 5-7 keywords that are:
+           a) Relevant to the job description
+           b) Appropriate for bridging the experience gap
+           c) Likely to improve ATS ranking
 
         For each suggested keyword:
-        1. Provide a detailed explanation of its importance, including:
-           - Relevance to the job description
-           - Significance in the industry
-           - Potential impact on ATS ranking
-        2. Suggest a specific, impactful bullet point or sentence incorporating the keyword that the user could add to their resume. This suggestion should:
-           - Be tailored to the candidate's experience (as seen in the resume)
-           - Use strong action verbs
-           - Include quantifiable achievements where possible
-           - Demonstrate the candidate's value and impact
-        3. Recommend the best section of the resume to include this keyword-enhanced content.
+        1. Explain its importance in the context of the job and the candidate's current experience.
+        2. Suggest a realistic way to incorporate this keyword into the resume, considering the candidate's actual experience. This could be:
+           a) A new bullet point highlighting a relevant project or responsibility
+           b) A skill to add to a technical skills section
+           c) A course or certification to pursue and add to an education section
+        3. Recommend where to place this addition in the resume.
 
         Resume Text:
         {resume_text}
@@ -370,8 +376,9 @@ def suggest_keywords():
         Job Description:
         {job_description}
 
-        Format your response as a JSON object with the following structure:
+        Format your response as a valid JSON object with the following structure. Ensure that the JSON is properly formatted and can be parsed without errors:
         {{
+          "experience_gap_analysis": "string",
           "keywords": [
             {{
               "keyword": "string",
@@ -384,7 +391,7 @@ def suggest_keywords():
           "overall_strategy": "string"
         }}
 
-        Provide 5-7 keyword suggestions, and include an "overall_strategy" field with a brief paragraph on how to effectively incorporate these keywords throughout the resume for maximum ATS and human reader impact.
+        The JSON should be valid and parseable without errors. Do not include any text outside of the JSON structure.
         """
 
         try:
@@ -402,9 +409,17 @@ def suggest_keywords():
 
             # Extract the JSON part from the response
             response_content = response.content[0].text
-            json_start = response_content.find('{')
-            json_end = response_content.rfind('}') + 1
-            suggestions = json.loads(response_content[json_start:json_end])
+            try:
+                suggestions = json.loads(response_content)
+            except json.JSONDecodeError:
+                # If full content parsing fails, try to extract JSON
+                json_start = response_content.find('{')
+                json_end = response_content.rfind('}') + 1
+                if json_start != -1 and json_end != -1:
+                    json_str = response_content[json_start:json_end]
+                    suggestions = json.loads(json_str)
+                else:
+                    raise ValueError("No valid JSON found in the response")
 
             return jsonify({
                 'job_description': job_description,
