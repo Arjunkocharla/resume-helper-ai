@@ -36,3 +36,8 @@ uploads/
 **/*$py.class
 
 resume_helper_backend/resume_app_venv/**
+.env
+*.json
+!package.json
+!package-lock.json
+resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json
