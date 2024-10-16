@@ -34,7 +34,7 @@ uploads/
 **/__pycache__/
 **/*.py[cod]
 **/*$py.class
-resume_helper_backend/py3.9venv/**
+resume_helper_backend/py3.9venv/
 resume_helper_backend/resume_app_venv/**
 .env
 **/.vscode
