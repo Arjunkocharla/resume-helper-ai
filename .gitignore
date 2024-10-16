@@ -41,5 +41,4 @@ resume_helper_backend/resume_app_venv/**
 !package.json
 !package-lock.json
 resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json
-launch.json
-.vscode/launch.json
+
