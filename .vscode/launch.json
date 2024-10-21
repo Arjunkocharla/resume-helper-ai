@@ -18,7 +18,7 @@
         "5000"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/resume_helper_backend/py3.9venv/Scripts/python",
+      "python": "${workspaceFolder}/resume_helper_backend/py3.9env/bin/python",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
