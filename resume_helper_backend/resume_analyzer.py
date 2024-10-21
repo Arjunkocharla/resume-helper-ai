@@ -12,18 +12,14 @@ import io
 import tempfile
 import time
 from dotenv import load_dotenv
-import os
-from flask import send_file, request, jsonify
-from b2sdk.v2 import InMemoryAccountInfo, B2Api
-from b2sdk.v2.exception import B2Error
-from urllib.parse import urlencode
 import boto3
 from botocore.client import Config
-from flask import jsonify, request
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-load_dotenv()
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 # Configure upload folder and allowed extensions
@@ -31,6 +27,7 @@ UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Backblaze B2 configuration
 B2_KEY_ID = os.getenv('B2_KEY_ID')
 B2_APPLICATION_KEY = os.getenv('B2_APPLICATION_KEY')
 B2_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')
@@ -569,7 +566,7 @@ def get_resume_download_url():
         # Use boto3 to generate pre-signed URL
         s3_client = boto3.client(
             's3',
-            endpoint_url='https://s3.us-east-005.backblazeb2.com', # Adjust the endpoint URL if necessary
+            endpoint_url=B2_ENDPOINT,  # Use the endpoint from environment variables
             aws_access_key_id=B2_KEY_ID,
             aws_secret_access_key=B2_APPLICATION_KEY,
             config=Config(signature_version='s3v4')
@@ -601,6 +598,124 @@ def get_resume_download_url():
             'error': f'Failed to generate pre-signed URL: {str(e)}',
             'file_id': file_id
         }), 500
+
+@app.route('/apply_suggestions', methods=['POST'])
+def apply_suggestions():
+    if 'resume' not in request.files or 'suggestions' not in request.form:
+        return jsonify({'error': 'Resume file and suggestions are required.'}), 400
+
+    file = request.files['resume']
+    suggestions_json = request.form['suggestions']
+
+    try:
+        suggestions = json.loads(suggestions_json)
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid JSON format in suggestions.'}), 400
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
+
+    # Save the uploaded resume
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+
+    # Extract text from resume
+    resume_text = extract_text(file_path)
+
+    # Create a prompt for Claude to apply suggestions
+    prompt = f"""As an expert resume editor, integrate the following suggestions into the resume text. Ensure the resume remains professional and coherent:
+
+    Resume Text:
+    {resume_text}
+
+    Suggestions:
+    {json.dumps(suggestions, indent=2)}
+
+    Please return the updated resume text in a format that can be easily converted back to a PDF or DOCX.
+    """
+
+    try:
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.3,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        # Extract the updated resume text from the response
+        updated_resume_text = response.content[0].text
+
+        # Save the updated resume text to a new file
+        updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{filename}")
+        with open(updated_file_path, 'w', encoding='utf-8') as updated_file:
+            updated_file.write(updated_resume_text)
+
+        # Initialize B2 API
+        info = InMemoryAccountInfo()
+        b2_api = B2Api(info)
+        b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+
+        # Get the bucket
+        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+
+        # Upload the updated file
+        with open(updated_file_path, 'rb') as file_data:
+            file_info = bucket.upload_bytes(
+                data_bytes=file_data.read(),
+                file_name=os.path.basename(updated_file_path),
+                content_type='application/pdf'  # Adjust content type as needed
+            )
+
+        # Initialize s3_client for generating pre-signed URL
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=B2_ENDPOINT,  # Use the endpoint from environment variables
+            aws_access_key_id=B2_KEY_ID,
+            aws_secret_access_key=B2_APPLICATION_KEY,
+            config=Config(signature_version='s3v4')
+        )
+
+        # Generate a pre-signed URL for the updated resume
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': B2_BUCKET_NAME,
+                'Key': os.path.basename(updated_file_path)
+            },
+            ExpiresIn=3600  # URL expires in 1 hour
+        )
+
+        return jsonify({'download_url': presigned_url}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def upload_to_backblaze(file_path):
+    # Initialize B2 API
+    info = InMemoryAccountInfo()
+    b2_api = B2Api(info)
+    b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+
+    # Get the bucket
+    bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+
+    # Upload the file
+    with open(file_path, 'rb') as file_data:
+        file_info = bucket.upload_bytes(
+            data_bytes=file_data.read(),
+            file_name=os.path.basename(file_path),
+            content_type='application/pdf'  # or 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' for DOCX
+        )
+
+    # Get the download URL
+    download_url = b2_api.get_download_url_for_fileid(file_info.id_)
+    return download_url
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
