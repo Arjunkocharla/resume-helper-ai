@@ -18,7 +18,7 @@
         "5000"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/resume_helper_backend/py3.9env/bin/python",
+      "python": "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/py3.9venv/Scripts/python.exe",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
@@ -38,7 +38,7 @@
         "5001"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/resume_helper_backend/resume_app_venv/bin/python"
+      "python": "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/resume_app_venv/Scripts/python.exe"
     },
     {
       "name": "Debug React",

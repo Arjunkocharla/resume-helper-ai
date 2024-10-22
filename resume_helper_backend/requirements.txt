@@ -10,3 +10,4 @@ firebase-admin
 boto3
 python-dotenv
 reportlab
+PyPDF2

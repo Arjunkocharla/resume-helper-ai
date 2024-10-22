@@ -16,6 +16,9 @@ import boto3
 from botocore.client import Config
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from PyPDF2 import PdfReader, PdfWriter
+import openai  # Import OpenAI for GPT
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +26,11 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+gpt_client = openai.OpenAI(
+    api_key = os.getenv("GPT_API_KEY"),
+)
+
 
 # Configure upload folder and allowed extensions
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
@@ -49,6 +57,9 @@ s3_client = boto3.client(
     aws_secret_access_key=B2_APPLICATION_KEY,
     config=Config(signature_version='s3v4')
 )
+
+# Initialize OpenAI API
+openai.api_key = os.getenv('GPT_API_KEY')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -579,6 +590,29 @@ def get_resume_download_url():
             'file_id': file_id
         }), 500
 
+def update_resume_via_gpt(resume_text, suggestions):
+    messages = [
+        {"role": "system", "content": "You are a resume editor."},
+        {"role": "user", "content": f"Here is a resume and some suggestions for improvement. Please apply the suggestions to the resume.\n\nResume Text:\n{resume_text}\n\nSuggestions:\n{suggestions}\n\nReturn the updated resume text."}
+    ]
+    response = gpt_client.chat.completions.create(
+        model="gpt-4",  # Use the appropriate model
+        messages=messages,
+        max_tokens=2000,
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
+
+def create_pdf_with_text(text, output_path):
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.drawString(10, 750, text)  # Adjust the position as needed
+    can.save()
+
+    packet.seek(0)
+    with open(output_path, 'wb') as f:
+        f.write(packet.getbuffer())
+
 @app.route('/apply_suggestions', methods=['POST'])
 def apply_suggestions():
     if 'resume' not in request.files or 'suggestions' not in request.form:
@@ -596,6 +630,7 @@ def apply_suggestions():
 
     resume_text = extract_text(file_path)
 
+    # Generate suggestions using Claude
     prompt = f"""As an expert resume editor, analyze the following resume and suggestions. 
     Provide a list of specific changes to be made to the resume, including the exact text to be added, 
     removed, or modified, and the location of each change. Do not rewrite the entire resume.
@@ -606,7 +641,7 @@ def apply_suggestions():
     Suggestions:
     {json.dumps(suggestions, indent=2)}
 
-    Please return your response in the following JSON format:
+    Please return your response in the following JSON format, that is parsable and json loads can handle:
     {{
         "changes": [
             {{
@@ -618,7 +653,6 @@ def apply_suggestions():
         ]
     }}
     """
-
     try:
         response = client.messages.create(
             model="claude-3-haiku-20240307",
@@ -632,10 +666,15 @@ def apply_suggestions():
             ]
         )
 
-        changes = json.loads(response.content[0].text)
+        # Extract the suggestions from the Claude model response
+        suggestions_text = response.content[0].text
 
-        # Apply changes to the original file
-        updated_file_path = apply_changes_to_file(file_path, changes['changes'])
+        # Pass the resume text and suggestions to GPT for updates
+        updated_resume_text = update_resume_via_gpt(resume_text, suggestions_text)
+
+        # Create a new PDF with the updated resume text
+        updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{filename}")
+        create_pdf_with_text(updated_resume_text, updated_file_path)
 
         # Upload the updated file to Backblaze B2
         download_url = upload_to_backblaze(updated_file_path)
@@ -643,6 +682,7 @@ def apply_suggestions():
         return jsonify({'download_url': download_url}), 200
 
     except Exception as e:
+        logging.error(f"Error in apply_suggestions: {e}")
         return jsonify({'error': str(e)}), 500
 
 def upload_to_backblaze(file_path):
@@ -677,26 +717,40 @@ def apply_changes_to_file(file_path, changes):
         raise ValueError("Unsupported file type")
 
 def apply_changes_to_pdf(file_path, changes):
-    # This is a placeholder. Modifying PDFs is complex and may require a library like PyPDF2 or reportlab.
-    # For now, we'll create a new PDF with the changes.
-    
-    
+    # Read the existing PDF
+    reader = PdfReader(file_path)
+    output = PdfWriter()
+
+    # Iterate over each page
+    for page_number, page in enumerate(reader.pages):
+        # Extract text from the page
+        text = page.extract_text()
+
+        # Apply changes
+        for change in changes:
+            if change['type'] == 'modify':
+                text = text.replace(change['original_text'], change['new_text'])
+            elif change['type'] == 'add':
+                text += f"\n{change['new_text']}"
+            elif change['type'] == 'remove':
+                text = text.replace(change['original_text'], '')
+
+        # Create a new PDF page with the modified text
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        can.drawString(10, 750, text)  # Adjust the position as needed
+        can.save()
+
+        # Move to the beginning of the StringIO buffer
+        packet.seek(0)
+        new_pdf = PdfReader(packet)
+        output.add_page(new_pdf.pages[0])
+
+    # Save the updated PDF
     updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{os.path.basename(file_path)}")
-    
-    c = canvas.Canvas(updated_file_path, pagesize=letter)
-    text = extract_text(file_path)
-    
-    for change in changes:
-        if change['type'] == 'modify':
-            text = text.replace(change['original_text'], change['new_text'])
-        elif change['type'] == 'add':
-            text += f"\n{change['new_text']}"
-        elif change['type'] == 'remove':
-            text = text.replace(change['original_text'], '')
-    
-    c.drawString(100, 750, text)
-    c.save()
-    
+    with open(updated_file_path, 'wb') as f:
+        output.write(f)
+
     return updated_file_path
 
 def apply_changes_to_docx(file_path, changes):
@@ -723,3 +777,4 @@ if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(debug=True)
+
