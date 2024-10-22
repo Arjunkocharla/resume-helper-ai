@@ -14,6 +14,8 @@ import time
 from dotenv import load_dotenv
 import boto3
 from botocore.client import Config
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +34,21 @@ B2_KEY_ID = os.getenv('B2_KEY_ID')
 B2_APPLICATION_KEY = os.getenv('B2_APPLICATION_KEY')
 B2_BUCKET_NAME = os.getenv('B2_BUCKET_NAME')
 B2_ENDPOINT = os.getenv('B2_ENDPOINT')
+
+# Initialize B2 API
+info = InMemoryAccountInfo()
+b2_api = B2Api(info)
+b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
+
+# S3 client for generating pre-signed URLs
+s3_client = boto3.client(
+    's3',
+    endpoint_url=B2_ENDPOINT,
+    aws_access_key_id=B2_KEY_ID,
+    aws_secret_access_key=B2_APPLICATION_KEY,
+    config=Config(signature_version='s3v4')
+)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -332,104 +349,67 @@ def suggest_keywords():
     file = request.files['resume']
     job_description = request.form['job_description']
 
-    if file.filename == '':
-        return jsonify({'error': 'No selected file.'}), 400
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
 
-        # Extract text from resume
-        resume_text = extract_text(file_path)
+    resume_text = extract_text(file_path)
 
-        # Crafting a detailed prompt
-        prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest relevant keywords and improvements that will enhance the resume's relevance and ATS performance for this specific role. Consider the following:
+    prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest highly effective keywords that will enhance the resume's relevance and ATS performance for this specific role. Consider industry trends, job market demands, and ATS optimization strategies in your analysis.
 
-        1. The candidate's current experience level as shown in the resume
-        2. The requirements and level of the job description
-        3. Industry trends and job market demands
-        4. ATS optimization strategies
+    Resume Text:
+    {resume_text}
 
-        Based on this analysis:
+    Job Description:
+    {job_description}
 
-        1. Identify the experience gap between the resume and the job description.
-        2. Suggest 5-7 keywords that are:
-           a) Relevant to the job description
-           b) Appropriate for bridging the experience gap
-           c) Likely to improve ATS ranking
-
-        For each suggested keyword:
-        1. Explain its importance in the context of the job and the candidate's current experience.
-        2. Suggest a realistic way to incorporate this keyword into the resume, considering the candidate's actual experience. This could be:
-           a) A new bullet point highlighting a relevant project or responsibility
-           b) A skill to add to a technical skills section
-           c) A course or certification to pursue and add to an education section
-        3. Recommend where to place this addition in the resume.
-
-        Resume Text:
-        {resume_text}
-
-        Job Description:
-        {job_description}
-
-        Format your response as a valid JSON object with the following structure. Ensure that the JSON is properly formatted and can be parsed without errors:
+    Provide your response in the following JSON format:
+    {{
+      "experience_gap_analysis": "string",
+      "keywords": [
         {{
-          "experience_gap_analysis": "string",
-          "keywords": [
-            {{
-              "keyword": "string",
-              "importance": "string",
-              "suggestion": "string",
-              "placement": "string"
-            }},
-            ...
-          ],
-          "overall_strategy": "string"
+          "keyword": "string",
+          "importance": "string",
+          "suggestion": "string",
+          "placement": "string"
         }}
+      ],
+      "overall_strategy": "string"
+    }}
+    """
 
-        The JSON should be valid and parseable without errors. Do not include any text outside of the JSON structure.
-        """
+    try:
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.3,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-        try:
-            response = client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=2000,
-                temperature=0.3,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
+        response_content = response.content[0].text
+        json_start = response_content.find('{')
+        json_end = response_content.rfind('}') + 1
+        json_str = response_content[json_start:json_end]
 
-            # Extract the JSON part from the response
-            response_content = response.content[0].text
-            try:
-                suggestions = json.loads(response_content)
-            except json.JSONDecodeError:
-                # If full content parsing fails, try to extract JSON
-                json_start = response_content.find('{')
-                json_end = response_content.rfind('}') + 1
-                if json_start != -1 and json_end != -1:
-                    json_str = response_content[json_start:json_end]
-                    suggestions = json.loads(json_str)
-                else:
-                    raise ValueError("No valid JSON found in the response")
+        # Sanitize the JSON string
+        json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
 
-            return jsonify({
-                'job_description': job_description,
-                'keyword_suggestions': suggestions
-            }), 200
+        suggestions = json.loads(json_str)
 
-        except json.JSONDecodeError as e:
-            return jsonify({'error': f'Failed to parse JSON: {str(e)}'}), 500
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'job_description': job_description,
+            'keyword_suggestions': suggestions
+        }), 200
 
-    else:
-        return jsonify({'error': 'Invalid file type. Only PDF and DOCX are allowed.'}), 400
+    except json.JSONDecodeError as e:
+        return jsonify({'error': f'Failed to parse JSON: {str(e)}', 'json_str': json_str}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
@@ -605,26 +585,20 @@ def apply_suggestions():
         return jsonify({'error': 'Resume file and suggestions are required.'}), 400
 
     file = request.files['resume']
-    suggestions_json = request.form['suggestions']
-
-    try:
-        suggestions = json.loads(suggestions_json)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON format in suggestions.'}), 400
+    suggestions = json.loads(request.form['suggestions'])
 
     if file.filename == '' or not allowed_file(file.filename):
         return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
 
-    # Save the uploaded resume
     filename = secure_filename(file.filename)
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(file_path)
 
-    # Extract text from resume
     resume_text = extract_text(file_path)
 
-    # Create a prompt for Claude to apply suggestions
-    prompt = f"""As an expert resume editor, integrate the following suggestions into the resume text. Ensure the resume remains professional and coherent:
+    prompt = f"""As an expert resume editor, analyze the following resume and suggestions. 
+    Provide a list of specific changes to be made to the resume, including the exact text to be added, 
+    removed, or modified, and the location of each change. Do not rewrite the entire resume.
 
     Resume Text:
     {resume_text}
@@ -632,7 +606,17 @@ def apply_suggestions():
     Suggestions:
     {json.dumps(suggestions, indent=2)}
 
-    Please return the updated resume text in a format that can be easily converted back to a PDF or DOCX.
+    Please return your response in the following JSON format:
+    {{
+        "changes": [
+            {{
+                "type": "add" | "remove" | "modify",
+                "location": "section name or line number",
+                "original_text": "text to be changed (for modify and remove)",
+                "new_text": "text to be added or modified"
+            }}
+        ]
+    }}
     """
 
     try:
@@ -648,50 +632,15 @@ def apply_suggestions():
             ]
         )
 
-        # Extract the updated resume text from the response
-        updated_resume_text = response.content[0].text
+        changes = json.loads(response.content[0].text)
 
-        # Save the updated resume text to a new file
-        updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{filename}")
-        with open(updated_file_path, 'w', encoding='utf-8') as updated_file:
-            updated_file.write(updated_resume_text)
+        # Apply changes to the original file
+        updated_file_path = apply_changes_to_file(file_path, changes['changes'])
 
-        # Initialize B2 API
-        info = InMemoryAccountInfo()
-        b2_api = B2Api(info)
-        b2_api.authorize_account("production", B2_KEY_ID, B2_APPLICATION_KEY)
+        # Upload the updated file to Backblaze B2
+        download_url = upload_to_backblaze(updated_file_path)
 
-        # Get the bucket
-        bucket = b2_api.get_bucket_by_name(B2_BUCKET_NAME)
-
-        # Upload the updated file
-        with open(updated_file_path, 'rb') as file_data:
-            file_info = bucket.upload_bytes(
-                data_bytes=file_data.read(),
-                file_name=os.path.basename(updated_file_path),
-                content_type='application/pdf'  # Adjust content type as needed
-            )
-
-        # Initialize s3_client for generating pre-signed URL
-        s3_client = boto3.client(
-            's3',
-            endpoint_url=B2_ENDPOINT,  # Use the endpoint from environment variables
-            aws_access_key_id=B2_KEY_ID,
-            aws_secret_access_key=B2_APPLICATION_KEY,
-            config=Config(signature_version='s3v4')
-        )
-
-        # Generate a pre-signed URL for the updated resume
-        presigned_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': B2_BUCKET_NAME,
-                'Key': os.path.basename(updated_file_path)
-            },
-            ExpiresIn=3600  # URL expires in 1 hour
-        )
-
-        return jsonify({'download_url': presigned_url}), 200
+        return jsonify({'download_url': download_url}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -716,6 +665,59 @@ def upload_to_backblaze(file_path):
     # Get the download URL
     download_url = b2_api.get_download_url_for_fileid(file_info.id_)
     return download_url
+
+def apply_changes_to_file(file_path, changes):
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    if file_extension == '.pdf':
+        return apply_changes_to_pdf(file_path, changes)
+    elif file_extension == '.docx':
+        return apply_changes_to_docx(file_path, changes)
+    else:
+        raise ValueError("Unsupported file type")
+
+def apply_changes_to_pdf(file_path, changes):
+    # This is a placeholder. Modifying PDFs is complex and may require a library like PyPDF2 or reportlab.
+    # For now, we'll create a new PDF with the changes.
+    
+    
+    updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{os.path.basename(file_path)}")
+    
+    c = canvas.Canvas(updated_file_path, pagesize=letter)
+    text = extract_text(file_path)
+    
+    for change in changes:
+        if change['type'] == 'modify':
+            text = text.replace(change['original_text'], change['new_text'])
+        elif change['type'] == 'add':
+            text += f"\n{change['new_text']}"
+        elif change['type'] == 'remove':
+            text = text.replace(change['original_text'], '')
+    
+    c.drawString(100, 750, text)
+    c.save()
+    
+    return updated_file_path
+
+def apply_changes_to_docx(file_path, changes):
+    doc = Document(file_path)
+    
+    for change in changes:
+        if change['type'] == 'modify':
+            for paragraph in doc.paragraphs:
+                if change['original_text'] in paragraph.text:
+                    paragraph.text = paragraph.text.replace(change['original_text'], change['new_text'])
+        elif change['type'] == 'add':
+            doc.add_paragraph(change['new_text'])
+        elif change['type'] == 'remove':
+            for paragraph in doc.paragraphs:
+                if change['original_text'] in paragraph.text:
+                    paragraph.text = paragraph.text.replace(change['original_text'], '')
+    
+    updated_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"updated_{os.path.basename(file_path)}")
+    doc.save(updated_file_path)
+    
+    return updated_file_path
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
