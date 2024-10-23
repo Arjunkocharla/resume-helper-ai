@@ -369,28 +369,60 @@ def suggest_keywords():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As an expert career counselor and ATS specialist, analyze the provided resume and job description to suggest highly effective keywords that will enhance the resume's relevance and ATS performance for this specific role. Consider industry trends, job market demands, and ATS optimization strategies in your analysis.
+    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored keyword suggestions. Focus on actionable, industry-specific improvements.
 
-    Resume Text:
-    {resume_text}
+1. First, analyze the resume to understand:
+   - The candidate's current experience level and role
+   - Technical skills and domain expertise
+   - Industry-specific achievements
+   - Current role and career trajectory
 
-    Job Description:
-    {job_description}
+2. Then, analyze the job description to identify:
+   - Must-have technical skills and qualifications
+   - Desired experience levels and competencies
+   - Industry-specific requirements
+   - Key responsibilities and deliverables
 
-    Provide your response in the following JSON format:
+3. Based on this analysis, provide:
+   - Keywords that are missing from the resume but crucial for the role
+   - Existing keywords that need stronger emphasis or context
+   - Industry-specific technical terms that would strengthen the application
+
+For each keyword suggestion:
+- Explain why it's specifically important for this role and industry
+- Provide 2-3 ready-to-use bullet points that:
+  * Incorporate the keyword naturally
+  * Include specific metrics and achievements where possible
+  * Use strong action verbs
+  * Are tailored to the candidate's experience level
+  * Follow ATS-friendly formatting
+  * Are industry-specific and technically accurate
+
+Resume Text:
+{resume_text}
+
+Job Description:
+{job_description}
+
+Provide your response in the following JSON format:
+{{
+  "experience_gap_analysis": "A detailed analysis of the gap between current resume and job requirements",
+  "keywords": [
     {{
-      "experience_gap_analysis": "string",
-      "keywords": [
+      "keyword": "Specific technical or professional term",
+      "importance": "Detailed explanation of why this keyword is crucial for this specific role",
+      "bullet_points": [
         {{
-          "keyword": "string",
-          "importance": "string",
-          "suggestion": "string",
-          "placement": "string"
+          "point": "Complete, ready-to-use bullet point",
+          "explanation": "Why this bullet point is effective and how it strengthens the resume"
         }}
       ],
-      "overall_strategy": "string"
+      "placement": "Specific section where this keyword/bullet point should be added"
     }}
-    """
+  ],
+  "overall_strategy": "Comprehensive strategy for implementing these changes effectively"
+}}
+"""
 
     try:
         response = client.messages.create(

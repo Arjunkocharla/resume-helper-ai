@@ -1,52 +1,71 @@
 import React, { useState, useRef } from 'react';
 import {
-  Container, Typography, Button, TextField, Paper, Box, CircularProgress,
-  Alert, Fade, Card, CardContent, Chip, Tooltip, IconButton, useTheme,
-  Stepper, Step, StepLabel, StepContent, Grid
+  Container, Typography, Button, TextField, Box, CircularProgress,
+  Alert, IconButton, Tooltip, AppBar, Toolbar, Grid, useTheme
 } from '@mui/material';
-import { 
+import {
   CloudUpload as CloudUploadIcon,
-  CheckCircleOutline,
   ContentCopy,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  ExpandLess as ExpandLessIcon,
+  ExitToApp as LogoutIcon,
+  AccountCircle as ProfileIcon,
+  CheckCircleOutline
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 
 function SuggestKeywords() {
-  const [activeStep, setActiveStep] = useState(0);
   const [file, setFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
   const [suggestions, setSuggestions] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [expandedKeyword, setExpandedKeyword] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(null);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
   const theme = useTheme();
 
+  const handleProfileClick = () => navigate('/profile');
+  
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-    setActiveStep(1);
+    const selectedFile = e.target.files[0];
+    if (selectedFile && (selectedFile.type === 'application/pdf' || 
+        selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+      setFile(selectedFile);
+      setError('');
+    } else {
+      setError('Please upload a PDF or DOCX file');
+      setFile(null);
+    }
   };
 
   const handleJobDescriptionChange = (e) => {
     setJobDescription(e.target.value);
-  };
-
-  const handleNextStep = () => {
-    setActiveStep((prevStep) => prevStep + 1);
+    setError('');
   };
 
   const handleSubmit = async () => {
+    if (!file || !jobDescription.trim()) {
+      setError('Please provide both a resume and job description');
+      return;
+    }
+
     setError('');
     setSuggestions(null);
     setLoading(true);
-
-    if (!file || !jobDescription) {
-      setError('Please complete both steps before submitting.');
-      setLoading(false);
-      return;
-    }
 
     const formData = new FormData();
     formData.append('resume', file);
@@ -58,232 +77,317 @@ function SuggestKeywords() {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
+      if (!response.ok) throw new Error('Failed to analyze resume');
       const data = await response.json();
       setSuggestions(data.keyword_suggestions);
-      setActiveStep(3);
     } catch (err) {
-      setError(err.message || 'An error occurred.');
+      setError(err.message || 'An error occurred while analyzing the resume');
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text, index) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(index);
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
   };
 
-  const steps = [
-    {
-      label: 'Upload Resume',
-      content: (
-        <Box sx={{ mt: 2 }}>
-          <input
-            ref={fileInputRef}
-            accept=".pdf,.docx"
-            style={{ display: 'none' }}
-            id="raised-button-file"
-            type="file"
-            onChange={handleFileChange}
-          />
-          <Button
-            variant="outlined"
-            component="span"
-            startIcon={<CloudUploadIcon />}
-            onClick={() => fileInputRef.current.click()}
-            fullWidth
-            sx={{ color: '#1E3A8A', borderColor: '#1E3A8A' }}
-          >
-            {file ? 'Change Resume' : 'Upload Resume'}
-          </Button>
-          {file && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-              <CheckCircleOutline sx={{ color: 'green', mr: 1 }} />
-              <Typography variant="body2" sx={{ color: '#1E3A8A' }}>{file.name}</Typography>
-            </Box>
-          )}
-        </Box>
-      ),
-    },
-    {
-      label: 'Enter Job Description',
-      content: (
-        <Box>
-          <TextField
-            fullWidth
-            label="Job Description"
-            variant="outlined"
-            value={jobDescription}
-            onChange={handleJobDescriptionChange}
-            multiline
-            rows={6}
-            sx={{ 
-              mt: 2,
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
-                '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
-              },
-              '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-              '& .MuiInputBase-input': { color: '#1E3A8A' },
-            }}
-          />
-          <Button
-            onClick={handleNextStep}
-            variant="contained"
-            disabled={!jobDescription.trim()}
-            sx={{
-              mt: 2,
-              bgcolor: theme.palette.primary.main,
-              color: 'white',
-              '&:hover': {
-                bgcolor: theme.palette.primary.dark,
-              },
-            }}
-          >
-            Next
-          </Button>
-        </Box>
-      ),
-    },
-    {
-      label: 'Get Suggestions',
-      content: (
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={loading || !file || !jobDescription}
-          fullWidth
-          sx={{
-            mt: 2,
-            bgcolor: theme.palette.primary.main,
-            color: 'white',
-            '&:hover': {
-              bgcolor: theme.palette.primary.dark,
-            },
-          }}
-        >
-          {loading ? <CircularProgress size={24} /> : 'Get Suggestions'}
-        </Button>
-      ),
-    },
-  ];
+  const cubStyle = {
+    position: 'absolute',
+    width: '60px',
+    height: '60px',
+    borderRadius: '12px',
+    background: 'rgba(0, 0, 0, 0.02)',
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    animation: 'float 6s ease-in-out infinite',
+  };
 
   return (
     <Box sx={{
       minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
       background: 'linear-gradient(135deg, #E0E0E0 0%, #C7D2FE 100%)',
-      py: 4,
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      <Container maxWidth="md">
-        <Fade in={true}>
-          <Paper elevation={3} sx={{ 
-            p: 4, 
-            borderRadius: '24px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+      <Box sx={{ ...cubStyle, top: '10%', left: '5%', animationDelay: '0s', background: 'rgba(59, 130, 246, 0.05)' }} />
+      <Box sx={{ ...cubStyle, top: '70%', left: '10%', animationDelay: '1s', background: 'rgba(16, 185, 129, 0.05)' }} />
+      <Box sx={{ ...cubStyle, top: '20%', right: '5%', animationDelay: '2s', background: 'rgba(245, 158, 11, 0.05)' }} />
+      <Box sx={{ ...cubStyle, bottom: '15%', right: '10%', animationDelay: '3s', background: 'rgba(59, 130, 246, 0.05)' }} />
+
+      <AppBar position="static" elevation={0} sx={{ background: 'transparent', boxShadow: 'none' }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1, color: '#1E3A8A', fontWeight: 'bold' }}>
+            Resume Helper AI
+          </Typography>
+          <IconButton onClick={handleProfileClick} sx={{ color: '#1E3A8A' }}>
+            <ProfileIcon />
+          </IconButton>
+          <IconButton onClick={handleLogout} sx={{ color: '#1E3A8A' }}>
+            <LogoutIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="xl">
+        <Grid container spacing={0}>
+          <Grid item xs={12} md={6} sx={{ 
+            p: 6,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
           }}>
-            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: '#1E3A8A' }}>
-              AI-Powered Keyword Optimizer
-            </Typography>
-            <Typography variant="body1" align="center" sx={{ mb: 4, color: '#4B5563' }}>
-              Upload your resume and enter the job description to get AI-powered keyword suggestions.
-            </Typography>
-            <Stepper activeStep={activeStep} orientation="vertical">
-              {steps.map((step, index) => (
-                <Step key={step.label}>
-                  <StepLabel>
-                    <Typography sx={{ color: '#1E3A8A' }}>{step.label}</Typography>
-                  </StepLabel>
-                  <StepContent>
-                    {step.content}
-                  </StepContent>
-                </Step>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Typography variant="h2" sx={{ 
+                color: '#1E3A8A',
+                fontWeight: 'bold',
+                mb: 3,
+                fontSize: { xs: '2.5rem', md: '3.5rem' }
+              }}>
+                Get AI-Powered Resume Insights
+              </Typography>
+              <Typography variant="h5" sx={{ color: '#4B5563', mb: 4, lineHeight: 1.6 }}>
+                Our AI analyzes your resume against job descriptions to provide:
+              </Typography>
+
+              {[
+                { icon: '🎯', text: 'Tailored keyword suggestions that match job requirements' },
+                { icon: '📈', text: 'Ready-to-use bullet points to highlight your experience' },
+                { icon: '⚡', text: 'Strategic placement recommendations for maximum impact' }
+              ].map((item, index) => (
+                <Box key={index} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  mb: 2,
+                  p: 2,
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  backdropFilter: 'blur(10px)',
+                }}>
+                  <Typography variant="h5" sx={{ mr: 2 }}>{item.icon}</Typography>
+                  <Typography variant="body1" sx={{ color: '#1E293B' }}>{item.text}</Typography>
+                </Box>
               ))}
-            </Stepper>
-            {error && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {error}
-              </Alert>
-            )}
-            <AnimatePresence>
-              {suggestions && (
+            </motion.div>
+          </Grid>
+
+          <Grid item xs={12} md={6} sx={{ position: 'relative' }}>
+            <Box sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              p: 6,
+            }}>
+              {!suggestions ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.5 }}
                 >
-                  <Typography variant="h5" gutterBottom sx={{ color: '#1E3A8A', mt: 4 }}>
-                    Suggested Keywords:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-                    {suggestions.keywords.map((suggestion, index) => (
-                      <Chip 
-                        key={index} 
-                        label={suggestion.keyword} 
-                        color="primary"
-                        onClick={() => setExpandedKeyword(expandedKeyword === index ? null : index)}
-                        sx={{ bgcolor: theme.palette.primary.main }} 
-                      />
-                    ))}
+                  <Box sx={{
+                    p: 4,
+                    borderRadius: '24px',
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    border: '2px dashed rgba(59, 130, 246, 0.3)',
+                    textAlign: 'center',
+                    mb: 4,
+                    cursor: 'pointer',
+                    minHeight: '200px', // Matching height with description box
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      borderColor: '#3B82F6',
+                      background: 'rgba(255, 255, 255, 0.95)',
+                    }
+                  }}
+                  onClick={() => fileInputRef.current.click()}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.docx"
+                      style={{ display: 'none' }}
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                    />
+                    <CloudUploadIcon sx={{ fontSize: 56, color: '#3B82F6', mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: '#1E293B', mb: 1, fontWeight: '500' }}>
+                      {file ? file.name : 'Drop your resume here'}
+                    </Typography>
+                    <Typography variant="body1" sx={{ color: '#64748B' }}>
+                      or click to browse (PDF, DOCX)
+                    </Typography>
                   </Box>
-                  <Box sx={{ maxHeight: '60vh', overflowY: 'auto', pr: 2 }}>
+
+                  <TextField
+                    multiline
+                    rows={8}
+                    placeholder="Paste the job description here..."
+                    value={jobDescription}
+                    onChange={handleJobDescriptionChange}
+                    sx={{
+                      mb: 4,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '24px', // Matching border radius
+                        minHeight: '200px', // Matching height
+                        '& textarea': {
+                          p: 3,
+                        }
+                      }
+                    }}
+                  />
+
+                  {error && (
+                    <Alert severity="error" sx={{ mb: 4, borderRadius: '16px' }}>
+                      {error}
+                    </Alert>
+                  )}
+
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    disabled={!file || !jobDescription || loading}
+                    onClick={handleSubmit}
+                    sx={{
+                      py: 2.5,
+                      background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                      borderRadius: '24px', // Matching border radius
+                      fontSize: '1.1rem',
+                      fontWeight: '500',
+                      textTransform: 'none',
+                      height: '60px', // Fixed height
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                      }
+                    }}
+                  >
+                    {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Get Personalized Suggestions'}
+                  </Button>
+                </motion.div>
+              ) : (
+                <Box sx={{
+                  height: '100vh',
+                  overflowY: 'auto',
+                  pr: 2,
+                  pb: 6,
+                  scrollbarWidth: 'thin',
+                  '&::-webkit-scrollbar': {
+                    width: '6px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'rgba(0, 0, 0, 0.1)',
+                    borderRadius: '3px',
+                  }
+                }}>
+                  <AnimatePresence>
                     {suggestions.keywords.map((suggestion, index) => (
-                      <Card sx={{ mb: 2, bgcolor: 'rgba(255, 255, 255, 0.1)' }} key={index}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpandedKeyword(expandedKeyword === index ? null : index)}>
-                            <Typography variant="h6" sx={{ color: '#1E3A8A' }}>
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <Box sx={{
+                          mb: 3,
+                          borderRadius: '16px',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          backdropFilter: 'blur(10px)',
+                          overflow: 'hidden',
+                        }}>
+                          <Box
+                            onClick={() => setExpandedKeyword(expandedKeyword === index ? null : index)}
+                            sx={{
+                              p: 3,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              cursor: 'pointer',
+                              '&:hover': { background: 'rgba(59, 130, 246, 0.05)' },
+                            }}
+                          >
+                            <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 500 }}>
                               {suggestion.keyword}
                             </Typography>
-                            {expandedKeyword === index ? <ExpandLessIcon sx={{ color: '#1E3A8A' }} /> : <ExpandMoreIcon sx={{ color: '#1E3A8A' }} />}
+                            <IconButton>
+                              {expandedKeyword === index ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            </IconButton>
                           </Box>
-                          {expandedKeyword === index && (
-                            <Box sx={{ mt: 2 }}>
-                              <Typography variant="body2" paragraph sx={{ color: '#4B5563' }}>
-                                {suggestion.importance}
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Typography variant="body1" sx={{ fontStyle: 'italic', color: '#1E3A8A' }}>
-                                  {suggestion.suggestion}
-                                </Typography>
-                                <Tooltip title="Copy to clipboard">
-                                  <IconButton onClick={() => copyToClipboard(suggestion.suggestion)} sx={{ color: '#1E3A8A' }}>
-                                    <ContentCopy />
-                                  </IconButton>
-                                </Tooltip>
-                              </Box>
-                              <Typography variant="body2" sx={{ mt: 1, color: '#4B5563' }}>
-                                Suggested placement: {suggestion.placement}
-                              </Typography>
-                            </Box>
-                          )}
-                        </CardContent>
-                      </Card>
+
+                          <AnimatePresence>
+                            {expandedKeyword === index && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                <Box sx={{ p: 3, pt: 0 }}>
+                                  {suggestion.bullet_points.map((bullet, bulletIndex) => (
+                                    <Box
+                                      key={bulletIndex}
+                                      sx={{
+                                        mb: 2,
+                                        p: 3,
+                                        borderRadius: '12px',
+                                        background: 'rgba(59, 130, 246, 0.05)',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start',
+                                      }}
+                                    >
+                                      <Box sx={{ flex: 1, mr: 2 }}>
+                                        <Typography sx={{ color: '#1E293B' }}>
+                                          {bullet.point}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ mt: 1, color: '#64748B' }}>
+                                          {bullet.explanation}
+                                        </Typography>
+                                      </Box>
+                                      <Tooltip title={copySuccess === bulletIndex ? 'Copied!' : 'Copy to clipboard'}>
+                                        <IconButton 
+                                          onClick={() => copyToClipboard(bullet.point, bulletIndex)}
+                                          sx={{ color: copySuccess === bulletIndex ? '#10B981' : '#3B82F6' }}
+                                        >
+                                          {copySuccess === bulletIndex ? <CheckCircleOutline /> : <ContentCopy />}
+                                        </IconButton>
+                                      </Tooltip>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </Box>
+                      </motion.div>
                     ))}
-                  </Box>
-                  {suggestions.overall_strategy && (
-                    <Box sx={{ mt: 3 }}>
-                      <Typography variant="h6" gutterBottom sx={{ color: '#1E3A8A' }}>
-                        Overall Strategy:
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: '#4B5563' }}>
-                        {suggestions.overall_strategy}
-                      </Typography>
-                    </Box>
-                  )}
-                </motion.div>
+                  </AnimatePresence>
+                </Box>
               )}
-            </AnimatePresence>
-          </Paper>
-        </Fade>
+            </Box>
+          </Grid>
+        </Grid>
       </Container>
+
+      <style jsx global>{`
+        @keyframes float {
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(10deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
+      `}</style>
     </Box>
   );
 }

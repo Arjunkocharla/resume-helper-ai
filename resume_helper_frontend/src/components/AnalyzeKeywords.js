@@ -95,10 +95,17 @@ function AnalyzeKeywords() {
           <Button
             variant="outlined"
             component="span"
-            startIcon={<CloudUploadIcon />}
+            startIcon={<CloudUploadIcon sx={{ color: '#1E293B' }} />}
             onClick={() => fileInputRef.current.click()}
             fullWidth
-            sx={{ color: 'white', borderColor: 'white' }}
+            sx={{ 
+              color: '#1E293B',
+              borderColor: '#1E293B',
+              '&:hover': {
+                borderColor: '#334155',
+                backgroundColor: 'rgba(30, 41, 59, 0.04)'
+              }
+            }}
           >
             {file ? 'Change Resume' : 'Upload Resume'}
           </Button>
@@ -178,7 +185,7 @@ function AnalyzeKeywords() {
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
-      background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+      background: 'linear-gradient(135deg, #D1D5DB 0%, #93C5FD 100%)', // Match home gradient
       py: 4,
     }}>
       <Container maxWidth="md">
@@ -186,11 +193,11 @@ function AnalyzeKeywords() {
           <Paper elevation={3} sx={{ 
             p: 4, 
             borderRadius: '24px',
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)', // Light complementary gradient
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
           }}>
-            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'white' }}>
+            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: '#1E293B' }}>
               Analyze Resume Keywords
             </Typography>
             <Stepper activeStep={activeStep} orientation="vertical">

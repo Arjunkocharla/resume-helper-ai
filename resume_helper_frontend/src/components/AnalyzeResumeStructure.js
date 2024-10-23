@@ -499,7 +499,7 @@ const AnalyzeResumeStructure = () => {
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+      background: 'linear-gradient(135deg, #D1D5DB 0%, #93C5FD 100%)', // Match home gradient
       py: 4,
     }}>
       <Container maxWidth="lg">
@@ -514,10 +514,10 @@ const AnalyzeResumeStructure = () => {
           <Fade in={true} timeout={1000}>
             <Box
               sx={{
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)', // Light complementary gradient
                 backdropFilter: 'blur(20px)',
                 borderRadius: '24px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(0, 0, 0, 0.1)',
                 p: 4,
               }}
             >
@@ -530,13 +530,13 @@ const AnalyzeResumeStructure = () => {
               {renderATSFriendlyStructure()}
               {renderIndustrySpecificSuggestions()}
               <Accordion sx={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: 'white',
+                background: 'white',
+                color: '#1E293B',
                 '&.Mui-expanded': {
                   margin: 0,
                 },
               }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#1E293B' }} />}>
                   <Typography>Overall Assessment</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
