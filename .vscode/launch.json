@@ -18,7 +18,8 @@
         "5000"
       ],
       "jinja": true,
-      "python": "/Users/arjunkocharla/Documents/resume_helper_app/resume_helper_backend/py3.9env/bin/python",
+      "python": "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/py3.9venv/Scripts/python.exe",
+    //   "/Users/arjunkocharla/Documents/resume_helper_app/resume_helper_backend/py3.9env/bin/python",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
@@ -44,8 +45,8 @@
       "name": "Debug React",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:3000",
-      "webRoot": "${workspaceFolder}/resume_helper_frontend",
+      "url": "http://127.0.0.1:3002",
+      "webRoot": "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_frontend",
       "sourceMapPathOverrides": {
         "webpack:///src/*": "${webRoot}/src/*"
       }

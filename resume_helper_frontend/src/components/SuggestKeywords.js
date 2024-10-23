@@ -97,123 +97,221 @@ function SuggestKeywords() {
     }
   };
 
-  const cubStyle = {
-    position: 'absolute',
-    width: '60px',
-    height: '60px',
-    borderRadius: '12px',
-    background: 'rgba(0, 0, 0, 0.02)',
-    backdropFilter: 'blur(5px)',
-    border: '1px solid rgba(0, 0, 0, 0.05)',
-    animation: 'float 6s ease-in-out infinite',
-  };
-
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #E0E0E0 0%, #C7D2FE 100%)',
+      background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)',
       position: 'relative',
       overflow: 'hidden'
     }}>
-      <Box sx={{ ...cubStyle, top: '10%', left: '5%', animationDelay: '0s', background: 'rgba(59, 130, 246, 0.05)' }} />
-      <Box sx={{ ...cubStyle, top: '70%', left: '10%', animationDelay: '1s', background: 'rgba(16, 185, 129, 0.05)' }} />
-      <Box sx={{ ...cubStyle, top: '20%', right: '5%', animationDelay: '2s', background: 'rgba(245, 158, 11, 0.05)' }} />
-      <Box sx={{ ...cubStyle, bottom: '15%', right: '10%', animationDelay: '3s', background: 'rgba(59, 130, 246, 0.05)' }} />
+      {/* Refined floating elements */}
+      <Box sx={{
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        opacity: 0.6,
+        zIndex: 0,
+        overflow: 'hidden'
+      }}>
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={i}
+            animate={{
+              y: [0, -20, 0],
+              rotate: [0, 10, 0],
+              scale: [1, 1.05, 1]
+            }}
+            transition={{
+              duration: 8,
+              delay: i * 1.2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            style={{
+              position: 'absolute',
+              width: '300px',
+              height: '300px',
+              borderRadius: '50%',
+              background: `radial-gradient(circle, ${
+                ['#e0e7ff33', '#dbeafe33', '#e0f2fe33', '#f0f9ff33', '#f8fafc33'][i]
+              } 0%, transparent 70%)`,
+              left: `${[10, 60, 20, 70, 40][i]}%`,
+              top: `${[20, 60, 80, 30, 50][i]}%`,
+              transform: 'translate(-50%, -50%)',
+              filter: 'blur(40px)',
+            }}
+          />
+        ))}
+      </Box>
 
-      <AppBar position="static" elevation={0} sx={{ background: 'transparent', boxShadow: 'none' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1, color: '#1E3A8A', fontWeight: 'bold' }}>
-            Resume Helper AI
-          </Typography>
-          <IconButton onClick={handleProfileClick} sx={{ color: '#1E3A8A' }}>
-            <ProfileIcon />
-          </IconButton>
-          <IconButton onClick={handleLogout} sx={{ color: '#1E3A8A' }}>
-            <LogoutIcon />
-          </IconButton>
-        </Toolbar>
+      {/* Refined AppBar */}
+      <AppBar position="static" elevation={0} 
+        sx={{ 
+          background: 'transparent', 
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+        <Container maxWidth="xl">
+          <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
+            <Typography variant="h6" 
+              sx={{ 
+                flexGrow: 1, 
+                background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: '700',
+                letterSpacing: '-0.5px'
+              }}>
+              Resume Helper AI
+            </Typography>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <IconButton onClick={handleProfileClick} 
+                sx={{ 
+                  color: '#1E3A8A',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  mr: 1,
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
+                }}>
+                <ProfileIcon />
+              </IconButton>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <IconButton onClick={handleLogout}
+                sx={{ 
+                  color: '#1E3A8A',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
+                }}>
+                <LogoutIcon />
+              </IconButton>
+            </motion.div>
+          </Toolbar>
+        </Container>
       </AppBar>
 
-      <Container maxWidth="xl">
-        <Grid container spacing={0}>
-          <Grid item xs={12} md={6} sx={{ 
-            p: 6,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-          }}>
+      <Container maxWidth="xl" sx={{ mt: { xs: 4, md: 8 }, position: 'relative', zIndex: 1 }}>
+        <Grid container spacing={6} alignItems="center">
+          {/* Left side content */}
+          <Grid item xs={12} md={5}>
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
             >
-              <Typography variant="h2" sx={{ 
-                color: '#1E3A8A',
-                fontWeight: 'bold',
-                mb: 3,
-                fontSize: { xs: '2.5rem', md: '3.5rem' }
-              }}>
-                Get AI-Powered Resume Insights
+              <Typography 
+                variant="h1" 
+                sx={{ 
+                  fontSize: { xs: '2.5rem', md: '3.5rem' },
+                  fontWeight: '700',
+                  letterSpacing: '-1px',
+                  lineHeight: 1.2,
+                  mb: 3,
+                  background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}>
+                Elevate Your Resume
               </Typography>
-              <Typography variant="h5" sx={{ color: '#4B5563', mb: 4, lineHeight: 1.6 }}>
-                Our AI analyzes your resume against job descriptions to provide:
+              <Typography 
+                sx={{ 
+                  color: '#64748B',
+                  fontSize: '1.1rem',
+                  lineHeight: 1.6,
+                  mb: 6
+                }}>
+                Our AI analyzes your resume against job descriptions to provide tailored insights and suggestions.
               </Typography>
 
+              {/* Feature cards with glass morphism */}
               {[
-                { icon: '🎯', text: 'Tailored keyword suggestions that match job requirements' },
-                { icon: '📈', text: 'Ready-to-use bullet points to highlight your experience' },
-                { icon: '⚡', text: 'Strategic placement recommendations for maximum impact' }
-              ].map((item, index) => (
-                <Box key={index} sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  mb: 2,
-                  p: 2,
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                }}>
-                  <Typography variant="h5" sx={{ mr: 2 }}>{item.icon}</Typography>
-                  <Typography variant="body1" sx={{ color: '#1E293B' }}>{item.text}</Typography>
-                </Box>
+                { icon: '✨', title: 'Smart Analysis', text: 'AI-powered keyword matching' },
+                { icon: '🎯', title: 'Tailored Suggestions', text: 'Customized bullet points' },
+                { icon: '⚡', title: 'Instant Results', text: 'Quick and actionable feedback' }
+              ].map((feature, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                >
+                  <Box sx={{
+                    mb: 3,
+                    p: 3,
+                    borderRadius: '24px',
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    transition: 'all 0.3s ease',
+                    cursor: 'default',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      background: 'rgba(255, 255, 255, 0.8)',
+                      boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)'
+                    }
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography sx={{ fontSize: '2rem', mr: 2 }}>{feature.icon}</Typography>
+                      <Box>
+                        <Typography sx={{ 
+                          fontWeight: '600',
+                          color: '#1E293B',
+                          mb: 0.5
+                        }}>
+                          {feature.title}
+                        </Typography>
+                        <Typography sx={{ 
+                          color: '#64748B',
+                          fontSize: '0.9rem'
+                        }}>
+                          {feature.text}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                </motion.div>
               ))}
             </motion.div>
           </Grid>
 
-          <Grid item xs={12} md={6} sx={{ position: 'relative' }}>
+          {/* Right side content */}
+          <Grid item xs={12} md={7}>
             <Box sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              p: 6,
+              position: 'relative',
+              zIndex: 2,
+              p: { xs: 2, md: 4 },
+              borderRadius: '32px',
+              background: 'rgba(255, 255, 255, 0.6)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.05)'
             }}>
               {!suggestions ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.6 }}
                 >
-                  <Box sx={{
-                    p: 4,
-                    borderRadius: '24px',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    border: '2px dashed rgba(59, 130, 246, 0.3)',
-                    textAlign: 'center',
-                    mb: 4,
-                    cursor: 'pointer',
-                    minHeight: '200px', // Matching height with description box
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      borderColor: '#3B82F6',
-                      background: 'rgba(255, 255, 255, 0.95)',
-                    }
-                  }}
-                  onClick={() => fileInputRef.current.click()}
+                  {/* File upload area */}
+                  <Box
+                    onClick={() => fileInputRef.current.click()}
+                    sx={{
+                      p: 6,
+                      mb: 4,
+                      borderRadius: '24px',
+                      background: 'rgba(255, 255, 255, 0.8)',
+                      border: '2px dashed rgba(59, 130, 246, 0.3)',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        borderColor: '#3B82F6',
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 20px 40px rgba(59, 130, 246, 0.1)'
+                      }
+                    }}
                   >
                     <input
                       type="file"
@@ -222,60 +320,103 @@ function SuggestKeywords() {
                       ref={fileInputRef}
                       onChange={handleFileChange}
                     />
-                    <CloudUploadIcon sx={{ fontSize: 56, color: '#3B82F6', mb: 2 }} />
-                    <Typography variant="h6" sx={{ color: '#1E293B', mb: 1, fontWeight: '500' }}>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <CloudUploadIcon sx={{ 
+                        fontSize: 72,
+                        color: '#3B82F6',
+                        opacity: 0.8,
+                        mb: 2
+                      }} />
+                    </motion.div>
+                    <Typography variant="h6" sx={{ 
+                      color: '#1E293B',
+                      fontWeight: '600',
+                      mb: 1
+                    }}>
                       {file ? file.name : 'Drop your resume here'}
                     </Typography>
-                    <Typography variant="body1" sx={{ color: '#64748B' }}>
+                    <Typography sx={{ color: '#64748B' }}>
                       or click to browse (PDF, DOCX)
                     </Typography>
                   </Box>
 
-                  <TextField
-                    multiline
-                    rows={8}
-                    placeholder="Paste the job description here..."
-                    value={jobDescription}
-                    onChange={handleJobDescriptionChange}
-                    sx={{
-                      mb: 4,
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        borderRadius: '24px', // Matching border radius
-                        minHeight: '200px', // Matching height
-                        '& textarea': {
-                          p: 3,
+                  {/* Job description input */}
+                  <Box sx={{ mb: 4 }}>
+                    <TextField
+                      multiline
+                      rows={6}
+                      placeholder="Paste the job description here..."
+                      value={jobDescription}
+                      onChange={handleJobDescriptionChange}
+                      fullWidth
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '20px',
+                          background: 'rgba(255, 255, 255, 0.8)',
+                          '& fieldset': {
+                            borderColor: 'rgba(59, 130, 246, 0.2)'
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#3B82F6'
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#3B82F6'
+                          }
                         }
-                      }
-                    }}
-                  />
+                      }}
+                    />
+                  </Box>
 
                   {error && (
-                    <Alert severity="error" sx={{ mb: 4, borderRadius: '16px' }}>
+                    <Alert 
+                      severity="error" 
+                      sx={{ 
+                        mb: 4,
+                        borderRadius: '16px',
+                        border: '1px solid rgba(239, 68, 68, 0.2)'
+                      }}
+                    >
                       {error}
                     </Alert>
                   )}
 
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    disabled={!file || !jobDescription || loading}
-                    onClick={handleSubmit}
-                    sx={{
-                      py: 2.5,
-                      background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-                      borderRadius: '24px', // Matching border radius
-                      fontSize: '1.1rem',
-                      fontWeight: '500',
-                      textTransform: 'none',
-                      height: '60px', // Fixed height
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
-                      }
-                    }}
+                  {/* Submit button */}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Get Personalized Suggestions'}
-                  </Button>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      disabled={!file || !jobDescription || loading}
+                      onClick={handleSubmit}
+                      sx={{
+                        py: 2,
+                        background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                        borderRadius: '16px',
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        textTransform: 'none',
+                        boxShadow: '0 10px 20px rgba(59, 130, 246, 0.2)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                        },
+                        '&:disabled': {
+                          background: '#94A3B8',
+                          boxShadow: 'none'
+                        }
+                      }}
+                    >
+                      {loading ? (
+                        <CircularProgress size={24} sx={{ color: 'white' }} />
+                      ) : (
+                        'Analyze Resume'
+                      )}
+                    </Button>
+                  </motion.div>
                 </motion.div>
               ) : (
                 <Box sx={{
@@ -380,14 +521,6 @@ function SuggestKeywords() {
           </Grid>
         </Grid>
       </Container>
-
-      <style jsx global>{`
-        @keyframes float {
-          0% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(10deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-      `}</style>
     </Box>
   );
 }
