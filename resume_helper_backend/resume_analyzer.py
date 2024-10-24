@@ -369,34 +369,45 @@ def suggest_keywords():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored keyword suggestions. Focus on actionable, industry-specific improvements.
+    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
 
 1. First, analyze the resume to understand:
    - The candidate's current experience level and role
-   - Technical skills and domain expertise
-   - Industry-specific achievements
+   - Technical skills, tools, and domain expertise
+   - Industry-specific achievements and certifications
    - Current role and career trajectory
+   - Existing keyword density and placement
 
 2. Then, analyze the job description to identify:
-   - Must-have technical skills and qualifications
+   - Must-have technical skills, tools, and technologies
+   - Required certifications and qualifications
    - Desired experience levels and competencies
-   - Industry-specific requirements
+   - Industry-specific terminology and frameworks
    - Key responsibilities and deliverables
+   - Recurring keywords and their variations
+   - Technology stack requirements
+   - Domain-specific methodologies
 
 3. Based on this analysis, provide:
-   - Keywords that are missing from the resume but crucial for the role
-   - Existing keywords that need stronger emphasis or context
+   - High-impact keywords missing from the resume but crucial for ATS scoring
+   - Existing keywords that need stronger emphasis or modern context
    - Industry-specific technical terms that would strengthen the application
+   - Role-specific tools and technologies mentioned in the job description
+   - Methodologies and frameworks valued in the industry
+   - Measurable metrics and achievements using these keywords
 
 For each keyword suggestion:
 - Explain why it's specifically important for this role and industry
+- Detail how it impacts ATS scoring and ranking
 - Provide 2-3 ready-to-use bullet points that:
-  * Incorporate the keyword naturally
-  * Include specific metrics and achievements where possible
-  * Use strong action verbs
+  * Incorporate the keyword naturally and with proper context
+  * Include specific metrics and quantifiable achievements
+  * Use strong action verbs aligned with seniority level
   * Are tailored to the candidate's experience level
-  * Follow ATS-friendly formatting
+  * Follow ATS-friendly formatting and keyword placement
   * Are industry-specific and technically accurate
+  * Include relevant tools and methodologies
+  * Demonstrate impact and results
 
 Resume Text:
 {resume_text}
@@ -410,17 +421,17 @@ Provide your response in the following JSON format:
   "keywords": [
     {{
       "keyword": "Specific technical or professional term",
-      "importance": "Detailed explanation of why this keyword is crucial for this specific role",
+      "importance": "Detailed explanation of why this keyword is crucial for this specific role and its impact on ATS scoring",
       "bullet_points": [
         {{
-          "point": "Complete, ready-to-use bullet point",
-          "explanation": "Why this bullet point is effective and how it strengthens the resume"
+          "point": "Complete, ready-to-use bullet point with metrics and context",
+          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
         }}
       ],
-      "placement": "Specific section where this keyword/bullet point should be added"
+      "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
     }}
   ],
-  "overall_strategy": "Comprehensive strategy for implementing these changes effectively"
+  "overall_strategy": "Comprehensive strategy for implementing these changes effectively and optimizing ATS scoring"
 }}
 """
 

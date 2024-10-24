@@ -10,7 +10,8 @@ import {
   ExpandLess as ExpandLessIcon,
   ExitToApp as LogoutIcon,
   AccountCircle as ProfileIcon,
-  CheckCircleOutline
+  CheckCircleOutline,
+  Refresh as RefreshIcon  // Changed this line
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -95,6 +96,15 @@ function SuggestKeywords() {
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
+  };
+
+  // Add this function with your other handlers
+  const handleStartNewAnalysis = () => {
+    setSuggestions(null);
+    setFile(null);
+    setJobDescription('');
+    setError('');
+    setExpandedKeyword(null);
   };
 
   return (
@@ -226,9 +236,21 @@ function SuggestKeywords() {
 
               {/* Feature cards with glass morphism */}
               {[
-                { icon: '✨', title: 'Smart Analysis', text: 'AI-powered keyword matching' },
-                { icon: '🎯', title: 'Tailored Suggestions', text: 'Customized bullet points' },
-                { icon: '⚡', title: 'Instant Results', text: 'Quick and actionable feedback' }
+                { 
+                  icon: '✨', 
+                  title: 'Smart Analysis', 
+                  text: 'AI-powered keyword matching to identify the most relevant skills and experiences from your resume'
+                },
+                { 
+                  icon: '🎯', 
+                  title: 'Tailored Suggestions', 
+                  text: 'Get customized bullet points and phrases that align perfectly with the job requirements'
+                },
+                { 
+                  icon: '⚡', 
+                  title: 'Instant Results', 
+                  text: 'Receive quick, actionable feedback to improve your resume\'s impact within minutes'
+                }
               ].map((feature, index) => (
                 <motion.div
                   key={index}
@@ -297,9 +319,9 @@ function SuggestKeywords() {
                   <Box
                     onClick={() => fileInputRef.current.click()}
                     sx={{
-                      p: 6,
+                      p: 4,
                       mb: 4,
-                      borderRadius: '24px',
+                      borderRadius: '20px',
                       background: 'rgba(255, 255, 255, 0.8)',
                       border: '2px dashed rgba(59, 130, 246, 0.3)',
                       transition: 'all 0.3s ease',
@@ -309,7 +331,7 @@ function SuggestKeywords() {
                         background: 'rgba(255, 255, 255, 0.9)',
                         borderColor: '#3B82F6',
                         transform: 'translateY(-4px)',
-                        boxShadow: '0 20px 40px rgba(59, 130, 246, 0.1)'
+                        boxShadow: '0 10px 20px rgba(59, 130, 246, 0.1)'
                       }
                     }}
                   >
@@ -325,7 +347,7 @@ function SuggestKeywords() {
                       whileTap={{ scale: 0.95 }}
                     >
                       <CloudUploadIcon sx={{ 
-                        fontSize: 72,
+                        fontSize: 48,
                         color: '#3B82F6',
                         opacity: 0.8,
                         mb: 2
@@ -338,7 +360,7 @@ function SuggestKeywords() {
                     }}>
                       {file ? file.name : 'Drop your resume here'}
                     </Typography>
-                    <Typography sx={{ color: '#64748B' }}>
+                    <Typography sx={{ color: '#64748B', fontSize: '0.9rem' }}>
                       or click to browse (PDF, DOCX)
                     </Typography>
                   </Box>
@@ -347,14 +369,14 @@ function SuggestKeywords() {
                   <Box sx={{ mb: 4 }}>
                     <TextField
                       multiline
-                      rows={6}
+                      rows={4}
                       placeholder="Paste the job description here..."
                       value={jobDescription}
                       onChange={handleJobDescriptionChange}
                       fullWidth
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          borderRadius: '20px',
+                          borderRadius: '16px',
                           background: 'rgba(255, 255, 255, 0.8)',
                           '& fieldset': {
                             borderColor: 'rgba(59, 130, 246, 0.2)'
@@ -394,13 +416,13 @@ function SuggestKeywords() {
                       disabled={!file || !jobDescription || loading}
                       onClick={handleSubmit}
                       sx={{
-                        py: 2,
+                        py: 1.5,
                         background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-                        borderRadius: '16px',
-                        fontSize: '1.1rem',
+                        borderRadius: '12px',
+                        fontSize: '1rem',
                         fontWeight: '600',
                         textTransform: 'none',
-                        boxShadow: '0 10px 20px rgba(59, 130, 246, 0.2)',
+                        boxShadow: '0 8px 16px rgba(59, 130, 246, 0.2)',
                         '&:hover': {
                           background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
                         },
@@ -425,96 +447,175 @@ function SuggestKeywords() {
                   pr: 2,
                   pb: 6,
                   scrollbarWidth: 'thin',
-                  '&::-webkit-scrollbar': {
-                    width: '6px',
-                  },
+                  '&::-webkit-scrollbar': { width: '6px' },
                   '&::-webkit-scrollbar-thumb': {
                     background: 'rgba(0, 0, 0, 0.1)',
                     borderRadius: '3px',
                   }
                 }}>
-                  <AnimatePresence>
-                    {suggestions.keywords.map((suggestion, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                  {/* New Analysis Button */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-end',
+                    mb: 3 
+                  }}>
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Button
+                        onClick={handleStartNewAnalysis}
+                        startIcon={<RefreshIcon />}
+                        sx={{
+                          background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                          color: 'white',
+                          px: 3,
+                          py: 1,
+                          borderRadius: '12px',
+                          textTransform: 'none',
+                          fontWeight: '500',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                          }
+                        }}
                       >
-                        <Box sx={{
-                          mb: 3,
-                          borderRadius: '16px',
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          backdropFilter: 'blur(10px)',
-                          overflow: 'hidden',
-                        }}>
+                        Start New Analysis
+                      </Button>
+                    </motion.div>
+                  </Box>
+
+                  {/* Summary Section */}
+                  <Box sx={{ mb: 4, p: 4, background: 'rgba(59, 130, 246, 0.1)', borderRadius: '16px' }}>
+                    <Typography variant="h5" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
+                      Resume Analysis Summary
+                    </Typography>
+                    <Typography sx={{ color: '#64748B', mb: 3 }}>
+                      {suggestions.experience_gap_analysis}
+                    </Typography>
+                  </Box>
+
+                  {/* Keywords Section */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="h5" sx={{ color: '#1E293B', mb: 3, fontWeight: 600 }}>
+                      Recommended Keywords & Improvements
+                    </Typography>
+                    
+                    <Grid container spacing={3}>
+                      {suggestions.keywords.map((suggestion, index) => (
+                        <Grid item xs={12} key={index}>
                           <Box
-                            onClick={() => setExpandedKeyword(expandedKeyword === index ? null : index)}
                             sx={{
-                              p: 3,
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              cursor: 'pointer',
-                              '&:hover': { background: 'rgba(59, 130, 246, 0.05)' },
+                              background: 'white',
+                              borderRadius: '16px',
+                              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              overflow: 'hidden',
+                              border: '1px solid rgba(59, 130, 246, 0.1)'
                             }}
                           >
-                            <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 500 }}>
-                              {suggestion.keyword}
-                            </Typography>
-                            <IconButton>
-                              {expandedKeyword === index ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                            </IconButton>
-                          </Box>
+                            {/* Keyword Header */}
+                            <Box
+                              onClick={() => setExpandedKeyword(expandedKeyword === index ? null : index)}
+                              sx={{
+                                p: 3,
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                cursor: 'pointer',
+                                background: expandedKeyword === index ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
+                                transition: 'background 0.2s ease',
+                                '&:hover': { background: 'rgba(59, 130, 246, 0.05)' },
+                              }}
+                            >
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="h6" sx={{ color: '#1E293B', fontWeight: 600, mb: 1 }}>
+                                  {suggestion.keyword}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#64748B' }}>
+                                  {suggestion.importance}
+                                </Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    display: 'inline-block',
+                                    mt: 2,
+                                    px: 2,
+                                    py: 0.5,
+                                    borderRadius: '12px',
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    color: '#3B82F6'
+                                  }}
+                                >
+                                  Suggested Section: {suggestion.placement}
+                                </Typography>
+                              </Box>
+                              <IconButton>
+                                {expandedKeyword === index ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                              </IconButton>
+                            </Box>
 
-                          <AnimatePresence>
-                            {expandedKeyword === index && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                <Box sx={{ p: 3, pt: 0 }}>
-                                  {suggestion.bullet_points.map((bullet, bulletIndex) => (
-                                    <Box
-                                      key={bulletIndex}
-                                      sx={{
-                                        mb: 2,
-                                        p: 3,
-                                        borderRadius: '12px',
-                                        background: 'rgba(59, 130, 246, 0.05)',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'flex-start',
-                                      }}
-                                    >
-                                      <Box sx={{ flex: 1, mr: 2 }}>
-                                        <Typography sx={{ color: '#1E293B' }}>
-                                          {bullet.point}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ mt: 1, color: '#64748B' }}>
+                            {/* Expanded Content */}
+                            <AnimatePresence>
+                              {expandedKeyword === index && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                >
+                                  <Box sx={{ p: 3, pt: 0, borderTop: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                                    <Typography variant="subtitle2" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
+                                      Suggested Implementations:
+                                    </Typography>
+                                    {suggestion.bullet_points.map((bullet, bulletIndex) => (
+                                      <Box
+                                        key={bulletIndex}
+                                        sx={{
+                                          mb: 2,
+                                          p: 3,
+                                          borderRadius: '12px',
+                                          background: 'rgba(59, 130, 246, 0.05)',
+                                          border: '1px solid rgba(59, 130, 246, 0.1)',
+                                        }}
+                                      >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                          <Typography sx={{ color: '#1E293B', flex: 1, pr: 2 }}>
+                                            {bullet.point}
+                                          </Typography>
+                                          <Tooltip title={copySuccess === bulletIndex ? 'Copied!' : 'Copy to clipboard'}>
+                                            <IconButton 
+                                              onClick={() => copyToClipboard(bullet.point, bulletIndex)}
+                                              sx={{ 
+                                                color: copySuccess === bulletIndex ? '#10B981' : '#3B82F6',
+                                                '&:hover': { background: 'rgba(59, 130, 246, 0.1)' }
+                                              }}
+                                            >
+                                              {copySuccess === bulletIndex ? <CheckCircleOutline /> : <ContentCopy />}
+                                            </IconButton>
+                                          </Tooltip>
+                                        </Box>
+                                        <Typography variant="body2" sx={{ color: '#64748B' }}>
                                           {bullet.explanation}
                                         </Typography>
                                       </Box>
-                                      <Tooltip title={copySuccess === bulletIndex ? 'Copied!' : 'Copy to clipboard'}>
-                                        <IconButton 
-                                          onClick={() => copyToClipboard(bullet.point, bulletIndex)}
-                                          sx={{ color: copySuccess === bulletIndex ? '#10B981' : '#3B82F6' }}
-                                        >
-                                          {copySuccess === bulletIndex ? <CheckCircleOutline /> : <ContentCopy />}
-                                        </IconButton>
-                                      </Tooltip>
-                                    </Box>
-                                  ))}
-                                </Box>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </Box>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                                    ))}
+                                  </Box>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+
+                  {/* Overall Strategy Section */}
+                  <Box sx={{ p: 4, background: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px' }}>
+                    <Typography variant="h5" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
+                      Implementation Strategy
+                    </Typography>
+                    <Typography sx={{ color: '#64748B' }}>
+                      {suggestions.overall_strategy}
+                    </Typography>
+                  </Box>
                 </Box>
               )}
             </Box>
