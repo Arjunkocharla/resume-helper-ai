@@ -369,8 +369,8 @@ def suggest_keywords():
 
     resume_text = extract_text(file_path)
 
+    # Keep the original detailed prompt
     prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
-    Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
 1. First, analyze the resume to understand:
    - The candidate's current experience level and role
@@ -416,63 +416,144 @@ Resume Text:
 Job Description:
 {job_description}
 
-Provide your response in the following JSON format:
+IMPORTANT: Respond with ONLY valid JSON matching this exact structure. Do not include any other text or explanations:
 {{
-  "experience_gap_analysis": "A detailed analysis of the gap between current resume and job requirements",
-  "keywords": [
-    {{
-      "keyword": "Specific technical or professional term",
-      "importance": "Detailed explanation of why this keyword is crucial for this specific role and its impact on ATS scoring",
-      "bullet_points": [
+    "experience_gap_analysis": "Detailed analysis of gaps between resume and job requirements",
+    "keywords": [
         {{
-          "point": "Complete, ready-to-use bullet point with metrics and context",
-          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
+            "keyword": "Specific skill or technology",
+            "importance": "Why this keyword is crucial for ATS scoring and this role",
+            "bullet_points": [
+                {{
+                    "point": "Ready-to-use bullet point with metrics and context",
+                    "explanation": "Why this implementation is effective"
+                }}
+            ],
+            "placement": "Specific section where this should be added"
         }}
-      ],
-      "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
-    }}
-  ],
-  "overall_strategy": "Comprehensive strategy for implementing these changes effectively and optimizing ATS scoring"
-}}
-"""
+    ],
+    "overall_strategy": "Strategic approach for implementing all suggestions"
+}}"""
 
     try:
         response = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=2000,
-            temperature=0.3,
+            temperature=0.8,
             messages=[
                 {"role": "user", "content": prompt}
             ]
         )
 
+        def extract_json_safely(text):
+            """Extract and validate JSON from Claude's response with multiple fallback methods"""
+            
+            def clean_json_string(json_str):
+                # Basic cleaning
+                json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
+                json_str = re.sub(r'\\[^"\/bfnrtu]', '', json_str)
+                json_str = re.sub(r',\s*([}\]])', r'\1', json_str)  # Remove trailing commas
+                json_str = re.sub(r'\s+', ' ', json_str.strip())  # Normalize whitespace
+                return json_str
+
+            def attempt_json_parse(json_str):
+                try:
+                    return json.loads(json_str)
+                except json.JSONDecodeError:
+                    return None
+
+            # Method 1: Try to find JSON between first { and last }
+            text = text.strip()
+            json_start = text.find('{')
+            json_end = text.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                json_str = clean_json_string(text[json_start:json_end])
+                result = attempt_json_parse(json_str)
+                if result:
+                    return result
+
+            # Method 2: Try to find JSON using regex pattern
+            json_pattern = r'\{(?:[^{}]|(?R))*\}'
+            matches = re.finditer(json_pattern, text, re.DOTALL)
+            for match in matches:
+                json_str = clean_json_string(match.group())
+                result = attempt_json_parse(json_str)
+                if result:
+                    return result
+
+            # Method 3: Try to fix common JSON issues
+            json_str = text
+            fixes = [
+                (r'"\s*,\s*}', '"}'),  # Fix trailing commas in objects
+                (r'"\s*,\s*]', '"]'),   # Fix trailing commas in arrays
+                (r'(\w+):', r'"\1":'),  # Quote unquoted keys
+                (r':\s*"([^"]*)\s*,', r':"\1",'),  # Fix missing quotes
+                (r'\\([^"\/bfnrtu])', r'\1'),  # Remove invalid escapes
+            ]
+            for pattern, replacement in fixes:
+                json_str = re.sub(pattern, replacement, json_str)
+            
+            result = attempt_json_parse(clean_json_string(json_str))
+            if result:
+                return result
+
+            raise ValueError("Could not extract valid JSON from response")
+
+        def validate_suggestions_structure(data):
+            """Validate the structure of the suggestions data"""
+            required_keys = {'experience_gap_analysis', 'keywords', 'overall_strategy'}
+            if not all(key in data for key in required_keys):
+                raise ValueError(f"Missing required keys. Found: {list(data.keys())}")
+
+            if not isinstance(data['keywords'], list):
+                raise ValueError("'keywords' must be a list")
+
+            for keyword in data['keywords']:
+                required_keyword_keys = {'keyword', 'importance', 'bullet_points', 'placement'}
+                if not all(key in keyword for key in required_keyword_keys):
+                    raise ValueError(f"Keyword missing required fields. Found: {list(keyword.keys())}")
+
+                if not isinstance(keyword['bullet_points'], list):
+                    raise ValueError("'bullet_points' must be a list")
+
+                for bullet in keyword['bullet_points']:
+                    if not all(key in bullet for key in {'point', 'explanation'}):
+                        raise ValueError("Bullet point missing required fields")
+
+            return True
+
+        # Extract and process the response
         response_content = response.content[0].text
-        json_start = response_content.find('{')
-        json_end = response_content.rfind('}') + 1
-        json_str = response_content[json_start:json_end]
-
-        # Sanitize the JSON string
-        json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
-
-        # Add error handling for JSON parsing
+        
         try:
-            suggestions = json.loads(json_str)
-        except json.JSONDecodeError as json_error:
-            # If JSON parsing fails, return the error details
+            suggestions = extract_json_safely(response_content)
+            validate_suggestions_structure(suggestions)
+            
             return jsonify({
-                'error': f'Failed to parse JSON: {str(json_error)}',
-                'json_str': json_str,
-                'error_position': json_error.pos,
-                'error_lineno': json_error.lineno,
-                'error_colno': json_error.colno
+                'job_description': job_description,
+                'keyword_suggestions': suggestions
+            }), 200
+
+        except json.JSONDecodeError as je:
+            logging.error(f"JSON Decode Error: {str(je)}")
+            logging.error(f"Response content: {response_content[:1000]}")
+            return jsonify({
+                'error': 'Failed to parse AI response',
+                'details': str(je),
+                'response_content': response_content[:1000]  # First 1000 chars for debugging
+            }), 500
+            
+        except ValueError as ve:
+            logging.error(f"Validation Error: {str(ve)}")
+            logging.error(f"Invalid structure: {response_content[:1000]}")
+            return jsonify({
+                'error': 'Invalid response structure',
+                'details': str(ve),
+                'response_content': response_content[:1000]
             }), 500
 
-        return jsonify({
-            'job_description': job_description,
-            'keyword_suggestions': suggestions
-        }), 200
-
     except Exception as e:
+        logging.error(f"General Error in suggest_keywords: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_resume', methods=['POST'])

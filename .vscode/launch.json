@@ -18,8 +18,8 @@
         "5000"
       ],
       "jinja": true,
-      "python":// "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/py3.9venv/Scripts/python.exe",
-      "/Users/arjunkocharla/Documents/resume_helper_app/resume_helper_backend/py3.9env/bin/python",
+      "python":"C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/py3.9venv/Scripts/python.exe",
+    //  "/Users/arjunkocharla/Documents/resume_helper_app/resume_helper_backend/py3.9env/bin/python",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
