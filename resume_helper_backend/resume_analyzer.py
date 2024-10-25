@@ -370,6 +370,7 @@ def suggest_keywords():
     resume_text = extract_text(file_path)
 
     prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+    Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
 1. First, analyze the resume to understand:
    - The candidate's current experience level and role
@@ -453,15 +454,24 @@ Provide your response in the following JSON format:
         # Sanitize the JSON string
         json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
 
-        suggestions = json.loads(json_str)
+        # Add error handling for JSON parsing
+        try:
+            suggestions = json.loads(json_str)
+        except json.JSONDecodeError as json_error:
+            # If JSON parsing fails, return the error details
+            return jsonify({
+                'error': f'Failed to parse JSON: {str(json_error)}',
+                'json_str': json_str,
+                'error_position': json_error.pos,
+                'error_lineno': json_error.lineno,
+                'error_colno': json_error.colno
+            }), 500
 
         return jsonify({
             'job_description': job_description,
             'keyword_suggestions': suggestions
         }), 200
 
-    except json.JSONDecodeError as e:
-        return jsonify({'error': f'Failed to parse JSON: {str(e)}', 'json_str': json_str}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
