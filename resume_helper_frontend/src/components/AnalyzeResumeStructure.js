@@ -4,7 +4,8 @@ import {
   List, ListItem, ListItemIcon, ListItemText, Divider,
   Container, Fade, Alert, LinearProgress, Tooltip,
   Accordion, AccordionSummary, AccordionDetails, Chip,
-  Card, CardContent, Step, Stepper, StepLabel, StepContent, useTheme
+  Card, CardContent, Step, Stepper, StepLabel, StepContent, useTheme,
+  AppBar, Toolbar, IconButton
 } from '@mui/material';
 import { 
   CloudUpload as CloudUploadIcon,
@@ -19,10 +20,17 @@ import {
   Description as DescriptionIcon,
   Analytics as AnalyticsIcon,
   CompareArrows as CompareArrowsIcon,
-  Lightbulb as LightbulbIcon
+  Lightbulb as LightbulbIcon,
+  Refresh as RefreshIcon,
+  AccountCircle as ProfileIcon,
+  ExitToApp as LogoutIcon
 } from '@mui/icons-material';
 import { Radar } from 'react-chartjs-2';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip, Legend } from 'chart.js';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, Legend);
 
@@ -32,7 +40,7 @@ const AnalyzeResumeStructure = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
-  const theme = useTheme();
+  const navigate = useNavigate();
 
   const loadingSteps = [
     { label: 'Parsing resume', description: 'Extracting text and structure...', icon: <DescriptionIcon /> },
@@ -92,46 +100,148 @@ const AnalyzeResumeStructure = () => {
     }
   };
 
+  const handleHomeClick = () => navigate('/');
+  const handleProfileClick = () => navigate('/profile');
+  const handleStartNew = () => {
+    setFile(null);
+    setAnalysis(null);
+    setError(null);
+    setActiveStep(0);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   const renderLoadingState = () => (
-    <Box sx={{ maxWidth: 400, margin: 'auto', mt: 4 }}>
-      <Stepper activeStep={activeStep} orientation="vertical">
+    <Box sx={{ 
+      maxWidth: 600, 
+      margin: '0 auto', 
+      mt: 4, 
+      background: 'white',
+      borderRadius: '24px',
+      p: 4,
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    }}>
+      <Typography variant="h6" sx={{ 
+        color: '#1E293B',
+        textAlign: 'center',
+        mb: 4 
+      }}>
+        Analyzing Your Resume
+      </Typography>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
         {loadingSteps.map((step, index) => (
-          <Step key={step.label}>
-            <StepLabel
-              icon={
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    bgcolor: index === activeStep ? 'primary.main' : 'rgba(255, 255, 255, 0.1)',
-                    color: index === activeStep ? 'white' : 'rgba(255, 255, 255, 0.5)',
-                  }}
-                >
-                  {index === activeStep ? (
-                    <CircularProgress size={24} sx={{ color: 'white' }} />
-                  ) : (
-                    index < activeStep ? <CheckCircleIcon /> : step.icon
-                  )}
-                </Box>
-              }
-            >
-              <Typography sx={{ color: 'white' }}>{step.label}</Typography>
-            </StepLabel>
-            <StepContent>
-              <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>{step.description}</Typography>
-              {index === activeStep && (
-                <Box sx={{ mt: 1, mb: 1 }}>
-                  <LinearProgress />
-                </Box>
+          <Box
+            key={step.label}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              position: 'relative',
+              width: '120px'
+            }}
+          >
+            {/* Connector line */}
+            {index < loadingSteps.length - 1 && (
+              <Box sx={{
+                position: 'absolute',
+                top: '20px',
+                right: '-50%',
+                width: '100%',
+                height: '2px',
+                bgcolor: index < activeStep ? '#3B82F6' : 'rgba(203, 213, 225, 0.5)',
+                transition: 'background-color 0.3s ease'
+              }} />
+            )}
+
+            {/* Step circle */}
+            <Box sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: index <= activeStep ? 'rgba(59, 130, 246, 0.1)' : 'rgba(203, 213, 225, 0.2)',
+              color: index <= activeStep ? '#3B82F6' : '#94A3B8',
+              transition: 'all 0.3s ease',
+              mb: 2,
+              zIndex: 1
+            }}>
+              {index === activeStep ? (
+                <CircularProgress size={24} sx={{ color: '#3B82F6' }} />
+              ) : index < activeStep ? (
+                <CheckCircleIcon />
+              ) : (
+                step.icon
               )}
-            </StepContent>
-          </Step>
+            </Box>
+
+            {/* Step label */}
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: index <= activeStep ? '#1E293B' : '#94A3B8',
+                textAlign: 'center',
+                fontWeight: index === activeStep ? 500 : 400,
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {step.label}
+            </Typography>
+          </Box>
         ))}
-      </Stepper>
+      </Box>
+
+      {/* Current step description */}
+      <Box sx={{
+        textAlign: 'center',
+        p: 3,
+        bgcolor: 'rgba(59, 130, 246, 0.05)',
+        borderRadius: '12px',
+        border: '1px solid rgba(59, 130, 246, 0.1)'
+      }}>
+        <Typography sx={{ color: '#3B82F6', fontWeight: 500, mb: 1 }}>
+          {loadingSteps[activeStep].label}
+        </Typography>
+        <Typography sx={{ color: '#64748B' }}>
+          {loadingSteps[activeStep].description}
+        </Typography>
+      </Box>
+
+      {/* Overall progress */}
+      <Box sx={{ mt: 4 }}>
+        <LinearProgress 
+          variant="determinate" 
+          value={(activeStep + 1) * (100 / loadingSteps.length)}
+          sx={{
+            height: 6,
+            borderRadius: 3,
+            bgcolor: 'rgba(203, 213, 225, 0.2)',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: '#3B82F6',
+              borderRadius: 3,
+            }
+          }}
+        />
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            color: '#64748B',
+            textAlign: 'center',
+            mt: 2 
+          }}
+        >
+          {Math.round((activeStep + 1) * (100 / loadingSteps.length))}% Complete
+        </Typography>
+      </Box>
     </Box>
   );
 
@@ -139,89 +249,175 @@ const AnalyzeResumeStructure = () => {
     <Box
       sx={{
         position: 'relative',
-        overflow: 'hidden',
         borderRadius: '24px',
-        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        background: 'white',
+        border: '1px solid rgba(59, 130, 246, 0.1)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
         p: 4,
         mb: 4,
       }}
     >
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 50%, transparent 70%)',
-          animation: 'pulse 15s infinite',
-        }}
-      />
-      <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <Typography variant="h4" gutterBottom sx={{ color: 'white', fontWeight: 'bold' }}>
-          Analyze Your Resume Structure
-        </Typography>
-        <Typography variant="body1" paragraph sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-          Upload your resume and get an in-depth analysis of its structure and ATS compatibility.
-        </Typography>
-        <Box sx={{ my: 3 }}>
-          <Stepper activeStep={file ? 1 : 0} alternativeLabel>
-            <Step>
-              <StepLabel StepIconProps={{ style: { color: theme.palette.primary.main } }}>Upload Resume</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel StepIconProps={{ style: { color: theme.palette.primary.main } }}>Analyze</StepLabel>
-            </Step>
-          </Stepper>
-        </Box>
-        <Box display="flex" justifyContent="center" alignItems="center" flexWrap="wrap" gap={2}>
-          <input
-            accept=".pdf,.docx"
-            style={{ display: 'none' }}
-            id="contained-button-file"
-            type="file"
-            onChange={handleFileChange}
-          />
-          <label htmlFor="contained-button-file">
-            <Button
-              variant="outlined"
-              component="span"
-              startIcon={<CloudUploadIcon />}
-              sx={{
-                color: theme.palette.primary.main,
-                borderColor: theme.palette.primary.main,
-                '&:hover': {
-                  borderColor: theme.palette.primary.main,
-                  bgcolor: 'rgba(16, 185, 129, 0.1)',
-                },
-              }}
-            >
-              {file ? 'Change Resume' : 'Upload Resume'}
-            </Button>
-          </label>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={!file || loading}
-            sx={{
-              bgcolor: theme.palette.primary.main,
-              color: 'white',
-              '&:hover': {
-                bgcolor: theme.palette.primary.dark,
-              },
+      <Grid container spacing={4}>
+        {/* Header Section */}
+        <Grid item xs={12} sx={{ textAlign: 'center', mb: 2 }}>
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              mb: 2
             }}
           >
-            {loading ? 'Analyzing...' : 'Analyze Resume'}
-          </Button>
-        </Box>
-        {file && (
-          <Typography variant="body2" sx={{ mt: 2, color: 'rgba(255, 255, 255, 0.7)' }}>
-            Selected file: {file.name}
+            Resume Structure Analysis
           </Typography>
-        )}
-      </Box>
+          <Typography variant="body1" sx={{ color: '#64748B', maxWidth: '600px', margin: '0 auto' }}>
+            Get instant feedback on your resume's effectiveness and ATS compatibility
+          </Typography>
+        </Grid>
+
+        {/* Process Steps */}
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap', mb: 4 }}>
+            {[
+              {
+                icon: <CloudUploadIcon sx={{ fontSize: 32, color: '#3B82F6' }} />,
+                title: 'Upload Resume',
+                description: 'PDF or Word format'
+              },
+              {
+                icon: <AnalyticsIcon sx={{ fontSize: 32, color: '#3B82F6' }} />,
+                title: 'AI Analysis',
+                description: 'Instant ATS scan'
+              },
+              {
+                icon: <LightbulbIcon sx={{ fontSize: 32, color: '#3B82F6' }} />,
+                title: 'Get Insights',
+                description: 'Actionable feedback'
+              }
+            ].map((step, index) => (
+              <Box 
+                key={index}
+                sx={{
+                  textAlign: 'center',
+                  position: 'relative',
+                  width: '180px'
+                }}
+              >
+                <Box sx={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '16px',
+                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  mb: 2
+                }}>
+                  {step.icon}
+                </Box>
+                <Typography variant="h6" sx={{ mb: 1, color: '#1E293B' }}>
+                  {step.title}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#64748B' }}>
+                  {step.description}
+                </Typography>
+                
+                {/* Connector line between steps */}
+                {index < 2 && (
+                  <Box sx={{
+                    position: 'absolute',
+                    top: '32px',
+                    right: '-40px',
+                    width: '40px',
+                    height: '2px',
+                    bgcolor: 'rgba(59, 130, 246, 0.2)',
+                    display: { xs: 'none', md: 'block' }
+                  }} />
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Grid>
+
+        {/* Upload Section */}
+        <Grid item xs={12} sx={{ textAlign: 'center' }}>
+          <Box sx={{ 
+            maxWidth: '400px', 
+            margin: '0 auto',
+            p: 3,
+            borderRadius: '16px',
+            bgcolor: 'rgba(59, 130, 246, 0.05)',
+            border: '1px dashed rgba(59, 130, 246, 0.2)'
+          }}>
+            <input
+              accept=".pdf,.docx"
+              style={{ display: 'none' }}
+              id="contained-button-file"
+              type="file"
+              onChange={handleFileChange}
+            />
+            
+            {!file ? (
+              <Box>
+                <label htmlFor="contained-button-file">
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{
+                      background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                      },
+                      mb: 2
+                    }}
+                  >
+                    Upload Resume
+                  </Button>
+                </label>
+                <Typography variant="body2" sx={{ color: '#64748B' }}>
+                  Supported formats: PDF, DOCX
+                </Typography>
+              </Box>
+            ) : (
+              <Box>
+                <CheckCircleIcon sx={{ fontSize: 40, color: '#10B981', mb: 2 }} />
+                <Typography sx={{ color: '#1E293B', mb: 2 }}>
+                  {file.name}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFile(null)}
+                    sx={{
+                      color: '#64748B',
+                      borderColor: 'rgba(100, 116, 139, 0.5)',
+                    }}
+                  >
+                    Remove
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    sx={{
+                      background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                      },
+                    }}
+                  >
+                    {loading ? 'Analyzing...' : 'Start Analysis'}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Grid>
+      </Grid>
     </Box>
   );
 
@@ -497,59 +693,191 @@ const AnalyzeResumeStructure = () => {
   };
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #D1D5DB 0%, #93C5FD 100%)', // Match home gradient
-      py: 4,
-    }}>
-      <Container maxWidth="lg">
-        {renderUploadSection()}
-        {error && (
-          <Alert severity="error" sx={{ mt: 2, mb: 4 }}>
-            {error}
-          </Alert>
-        )}
-        {loading && renderLoadingState()}
-        {analysis && (
-          <Fade in={true} timeout={1000}>
-            <Box
-              sx={{
-                background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)', // Light complementary gradient
-                backdropFilter: 'blur(20px)',
-                borderRadius: '24px',
-                border: '1px solid rgba(0, 0, 0, 0.1)',
-                p: 4,
+    <motion.div
+      initial={{ 
+        opacity: 0,
+        y: 20  // Reduced from 40 to make it more subtle
+      }}
+      animate={{ 
+        opacity: 1,
+        y: 0
+      }}
+      transition={{ 
+        duration: 0.5,  // Increased from 0.3 to match SuggestKeywords
+        ease: "easeOut"  // Simplified easing function to prevent glitch
+      }}
+      style={{ 
+        width: '100%',  // Prevent layout shift
+        height: '100%',
+        willChange: 'transform'  // Optimize animation performance
+      }}
+    >
+      <Box sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Floating background elements */}
+        <Box sx={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          opacity: 0.6,
+          zIndex: 0,
+          overflow: 'hidden'
+        }}>
+          {[...Array(5)].map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                y: [0, -20, 0],
+                rotate: [0, 10, 0],
+                scale: [1, 1.05, 1]
               }}
-            >
-              {renderATSScore()}
-              {renderContentMetrics()}
-              {renderStrengthsAndImprovements()}
-              <Divider sx={{ my: 4, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
-              {renderKeywordsAnalysis()}
-              {renderSectionOrder()}
-              {renderATSFriendlyStructure()}
-              {renderIndustrySpecificSuggestions()}
-              <Accordion sx={{
-                background: 'white',
-                color: '#1E293B',
-                '&.Mui-expanded': {
-                  margin: 0,
-                },
-              }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#1E293B' }} />}>
-                  <Typography>Overall Assessment</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {analysis.Overall_Assessment}
-                  </Typography>
-                </AccordionDetails>
-              </Accordion>
-            </Box>
-          </Fade>
-        )}
-      </Container>
-    </Box>
+              transition={{
+                duration: 8,
+                delay: i * 1.2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              style={{
+                position: 'absolute',
+                width: '300px',
+                height: '300px',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${
+                  ['#e0e7ff33', '#dbeafe33', '#e0f2fe33', '#f0f9ff33', '#f8fafc33'][i]
+                } 0%, transparent 70%)`,
+                left: `${[10, 60, 20, 70, 40][i]}%`,
+                top: `${[20, 60, 80, 30, 50][i]}%`,
+                transform: 'translate(-50%, -50%)',
+                filter: 'blur(40px)',
+              }}
+            />
+          ))}
+        </Box>
+
+        {/* AppBar with exact same positioning */}
+        <AppBar position="static" elevation={0} 
+          sx={{ 
+            background: 'transparent', 
+            backdropFilter: 'blur(10px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+          <Container maxWidth="xl">
+            <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
+              <Typography 
+                variant="h6" 
+                onClick={handleHomeClick}
+                sx={{ 
+                  flexGrow: 1, 
+                  background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontWeight: '700',
+                  letterSpacing: '-0.5px',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.8
+                  }
+                }}>
+                Resume Helper AI
+              </Typography>
+              
+              {analysis && (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <IconButton onClick={handleStartNew} 
+                    sx={{ 
+                      color: '#1E3A8A',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      mr: 1,
+                      '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
+                    }}>
+                    <RefreshIcon />
+                  </IconButton>
+                </motion.div>
+              )}
+
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <IconButton onClick={handleProfileClick} 
+                  sx={{ 
+                    color: '#1E3A8A',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    mr: 1,
+                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
+                  }}>
+                  <ProfileIcon />
+                </IconButton>
+              </motion.div>
+              
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <IconButton onClick={handleLogout}
+                  sx={{ 
+                    color: '#1E3A8A',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
+                  }}>
+                  <LogoutIcon />
+                </IconButton>
+              </motion.div>
+            </Toolbar>
+          </Container>
+        </AppBar>
+
+        {/* Main content with exact same container settings */}
+        <Container maxWidth="xl" sx={{ mt: { xs: 4, md: 8 }, position: 'relative', zIndex: 1 }}>
+          {renderUploadSection()}
+          {error && (
+            <Alert severity="error" sx={{ mt: 2, mb: 4 }}>
+              {error}
+            </Alert>
+          )}
+          {loading && renderLoadingState()}
+          {analysis && (
+            <Fade in={true} timeout={1000}>
+              <Box
+                sx={{
+                  background: 'white',
+                  borderRadius: '24px',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  p: 4,
+                }}
+              >
+                {renderATSScore()}
+                {renderContentMetrics()}
+                {renderStrengthsAndImprovements()}
+                <Divider sx={{ my: 4, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
+                {renderKeywordsAnalysis()}
+                {renderSectionOrder()}
+                {renderATSFriendlyStructure()}
+                {renderIndustrySpecificSuggestions()}
+                <Accordion sx={{
+                  background: 'white',
+                  color: '#1E293B',
+                  '&.Mui-expanded': {
+                    margin: 0,
+                  },
+                }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#1E293B' }} />}>
+                    <Typography>Overall Assessment</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                      {analysis.Overall_Assessment}
+                    </Typography>
+                  </AccordionDetails>
+                </Accordion>
+              </Box>
+            </Fade>
+          )}
+        </Container>
+      </Box>
+    </motion.div>
   );
 };
 

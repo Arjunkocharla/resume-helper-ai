@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   Container, Typography, Button, TextField, Box, CircularProgress,
-  Alert, IconButton, Tooltip, AppBar, Toolbar, Grid, useTheme
+  Alert, IconButton, Tooltip, AppBar, Toolbar, Grid, useTheme, Collapse
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -11,7 +11,9 @@ import {
   ExitToApp as LogoutIcon,
   AccountCircle as ProfileIcon,
   CheckCircleOutline,
-  Refresh as RefreshIcon  // Changed this line
+  Refresh as RefreshIcon,  // Changed this line
+  Assessment as AssessmentIcon,
+  Lightbulb as LightbulbIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +31,8 @@ function SuggestKeywords() {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const theme = useTheme();
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+  const [showActionPlan, setShowActionPlan] = useState(false);
 
   const handleProfileClick = () => navigate('/profile');
   
@@ -107,6 +111,9 @@ function SuggestKeywords() {
     setExpandedKeyword(null);
   };
 
+  // Add this handler with your other handlers
+  const handleHomeClick = () => navigate('/');
+
   return (
     <Box sx={{
       minHeight: '100vh',
@@ -164,13 +171,18 @@ function SuggestKeywords() {
         <Container maxWidth="xl">
           <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
             <Typography variant="h6" 
+              onClick={handleHomeClick}  // Add this
               sx={{ 
                 flexGrow: 1, 
                 background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 fontWeight: '700',
-                letterSpacing: '-0.5px'
+                letterSpacing: '-0.5px',
+                cursor: 'pointer',  // Add this to show it's clickable
+                '&:hover': {  // Add hover effect
+                  opacity: 0.8
+                }
               }}>
               Resume Helper AI
             </Typography>
@@ -484,14 +496,192 @@ function SuggestKeywords() {
                     </motion.div>
                   </Box>
 
-                  {/* Summary Section */}
-                  <Box sx={{ mb: 4, p: 4, background: 'rgba(59, 130, 246, 0.1)', borderRadius: '16px' }}>
-                    <Typography variant="h5" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
-                      Resume Analysis Summary
-                    </Typography>
-                    <Typography sx={{ color: '#64748B', mb: 3 }}>
-                      {suggestions.experience_gap_analysis}
-                    </Typography>
+                  {/* Quick Summary Strip */}
+                  <Box sx={{ mb: 4 }}>
+                    <Grid container spacing={3}>
+                      {/* Key Findings Card */}
+                      <Grid item xs={12}>
+                        <Box sx={{
+                          p: 3,
+                          background: 'white',
+                          borderRadius: '16px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          border: '1px solid rgba(59, 130, 246, 0.1)'
+                        }}>
+                          <Grid container spacing={2}>
+                            {/* Summary Stats */}
+                            <Grid item xs={12} md={8}>
+                              <Box sx={{ display: 'flex', gap: 3 }}>
+                                {/* Match Score */}
+                                <Box sx={{ 
+                                  flex: 1,
+                                  p: 2, 
+                                  borderRadius: '12px',
+                                  background: 'rgba(59, 130, 246, 0.1)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center'
+                                }}>
+                                  <Typography variant="h6" sx={{ color: '#3B82F6', fontWeight: 600 }}>
+                                    {suggestions.keywords.length}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#64748B' }}>
+                                    Keywords Found
+                                  </Typography>
+                                </Box>
+                                
+                                {/* Quick Actions */}
+                                <Box sx={{ 
+                                  flex: 2,
+                                  p: 2, 
+                                  borderRadius: '12px',
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 2
+                                }}>
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant="body2" sx={{ color: '#064E3B', fontWeight: 600, mb: 0.5 }}>
+                                      Quick Action
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#047857' }}>
+                                      Start with high-priority keywords in your summary section
+                                    </Typography>
+                                  </Box>
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => setExpandedKeyword(0)} // Opens first keyword
+                                    sx={{
+                                      bgcolor: '#10B981',
+                                      '&:hover': { bgcolor: '#059669' }
+                                    }}
+                                  >
+                                    Start
+                                  </Button>
+                                </Box>
+                              </Box>
+                            </Grid>
+
+                            {/* Action Menu */}
+                            <Grid item xs={12} md={4}>
+                              <Box sx={{ 
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 2,
+                                justifyContent: 'flex-end'
+                              }}>
+                                <Tooltip title="View Full Analysis">
+                                  <IconButton
+                                    onClick={() => setShowFullAnalysis(prev => !prev)}
+                                    sx={{ 
+                                      color: '#3B82F6',
+                                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                                      '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' }
+                                    }}
+                                  >
+                                    <AssessmentIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="View Action Plan">
+                                  <IconButton
+                                    onClick={() => setShowActionPlan(prev => !prev)}
+                                    sx={{ 
+                                      color: '#10B981',
+                                      bgcolor: 'rgba(16, 185, 129, 0.1)',
+                                      '&:hover': { bgcolor: 'rgba(16, 185, 129, 0.2)' }
+                                    }}
+                                  >
+                                    <LightbulbIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            </Grid>
+                          </Grid>
+
+                          {/* Expandable Analysis */}
+                          <Collapse in={showFullAnalysis}>
+                            <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px' }}>
+                              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                                Analysis Points:
+                              </Typography>
+                              {/* Split the text into points by splitting on periods */}
+                              {suggestions.experience_gap_analysis.split('. ')
+                                .filter(point => point.trim())  // Remove empty points
+                                .map((point, index) => (
+                                  <Box key={index} sx={{ 
+                                    display: 'flex', 
+                                    gap: 2, 
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: '8px',
+                                    bgcolor: 'white',
+                                    border: '1px solid rgba(59, 130, 246, 0.1)'
+                                  }}>
+                                    <Box sx={{
+                                      minWidth: 24,
+                                      height: 24,
+                                      borderRadius: '50%',
+                                      bgcolor: 'primary.main',
+                                      color: 'white',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.8rem'
+                                    }}>
+                                      {index + 1}
+                                    </Box>
+                                    <Typography sx={{ fontSize: '0.9rem', color: '#334155' }}>
+                                      {point.trim()}.
+                                    </Typography>
+                                  </Box>
+                                ))}
+                            </Box>
+                          </Collapse>
+
+                          {/* Expandable Action Plan */}
+                          <Collapse in={showActionPlan}>
+                            <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px' }}>
+                              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+                                Action Steps:
+                              </Typography>
+                              {/* Split the text into steps by splitting on periods */}
+                              {suggestions.overall_strategy.split('. ')
+                                .filter(step => step.trim())  // Remove empty steps
+                                .map((step, index) => (
+                                  <Box key={index} sx={{ 
+                                    display: 'flex', 
+                                    gap: 2, 
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: '8px',
+                                    bgcolor: 'white',
+                                    border: '1px solid rgba(16, 185, 129, 0.1)'
+                                  }}>
+                                    <Box sx={{
+                                      minWidth: 24,
+                                      height: 24,
+                                      borderRadius: '50%',
+                                      bgcolor: 'success.main',
+                                      color: 'white',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.8rem'
+                                    }}>
+                                      {index + 1}
+                                    </Box>
+                                    <Typography sx={{ fontSize: '0.9rem', color: '#334155' }}>
+                                      {step.trim()}.
+                                    </Typography>
+                                  </Box>
+                                ))}
+                            </Box>
+                          </Collapse>
+                        </Box>
+                      </Grid>
+                    </Grid>
                   </Box>
 
                   {/* Keywords Section */}
@@ -605,16 +795,6 @@ function SuggestKeywords() {
                         </Grid>
                       ))}
                     </Grid>
-                  </Box>
-
-                  {/* Overall Strategy Section */}
-                  <Box sx={{ p: 4, background: 'rgba(16, 185, 129, 0.1)', borderRadius: '16px' }}>
-                    <Typography variant="h5" sx={{ color: '#1E293B', mb: 2, fontWeight: 600 }}>
-                      Implementation Strategy
-                    </Typography>
-                    <Typography sx={{ color: '#64748B' }}>
-                      {suggestions.overall_strategy}
-                    </Typography>
                   </Box>
                 </Box>
               )}

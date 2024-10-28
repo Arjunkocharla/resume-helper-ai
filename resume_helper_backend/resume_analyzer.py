@@ -19,6 +19,11 @@ from reportlab.lib.pagesizes import letter
 from PyPDF2 import PdfReader, PdfWriter
 import openai  # Import OpenAI for GPT
 import logging
+import os
+from flask import send_file, request, jsonify
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from b2sdk.v2.exception import B2Error
+import io
 
 # Load environment variables
 load_dotenv()
@@ -352,63 +357,151 @@ def analyze_resume_length():
     else:
         return jsonify({'error': 'Invalid file type. Only PDF and DOCX are allowed.'}), 400
 
+def sanitize_llm_response(response_text):
+    """Sanitize and structure the LLM response into a consistent format"""
+    try:
+        # First try to find and parse JSON directly
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        json_str = response_text[json_start:json_end]
+        
+        # Remove any special characters, extra spaces, or invalid Unicode
+        json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
+        json_str = re.sub(r'\s+', ' ', json_str)
+        
+        # Try to parse the JSON
+        data = json.loads(json_str)
+        
+        # Ensure the required structure exists
+        sanitized_data = {
+            "experience_gap_analysis": "",
+            "keywords": [],
+            "overall_strategy": ""
+        }
+        
+        # Sanitize experience gap analysis
+        if "experience_gap_analysis" in data:
+            sanitized_data["experience_gap_analysis"] = str(data["experience_gap_analysis"]).strip()
+        
+        # Sanitize keywords array
+        if "keywords" in data and isinstance(data["keywords"], list):
+            for keyword in data["keywords"]:
+                sanitized_keyword = {
+                    "keyword": "",
+                    "importance": "",
+                    "bullet_points": [],
+                    "placement": ""
+                }
+                
+                # Sanitize keyword fields
+                if "keyword" in keyword:
+                    sanitized_keyword["keyword"] = str(keyword["keyword"]).strip()
+                if "importance" in keyword:
+                    sanitized_keyword["importance"] = str(keyword["importance"]).strip()
+                if "placement" in keyword:
+                    sanitized_keyword["placement"] = str(keyword["placement"]).strip()
+                
+                # Sanitize bullet points
+                if "bullet_points" in keyword and isinstance(keyword["bullet_points"], list):
+                    for point in keyword["bullet_points"]:
+                        if isinstance(point, dict):
+                            sanitized_point = {
+                                "point": str(point.get("point", "")).strip(),
+                                "explanation": str(point.get("explanation", "")).strip()
+                            }
+                            sanitized_keyword["bullet_points"].append(sanitized_point)
+                        elif isinstance(point, str):
+                            # Handle case where bullet point is just a string
+                            sanitized_point = {
+                                "point": point.strip(),
+                                "explanation": "No explanation provided"
+                            }
+                            sanitized_keyword["bullet_points"].append(sanitized_point)
+                
+                sanitized_data["keywords"].append(sanitized_keyword)
+        
+        # Sanitize overall strategy
+        if "overall_strategy" in data:
+            sanitized_data["overall_strategy"] = str(data["overall_strategy"]).strip()
+        
+        return sanitized_data
+        
+    except Exception as e:
+        logging.error(f"Error sanitizing LLM response: {str(e)}")
+        # Return a minimal valid structure if parsing fails
+        return {
+            "experience_gap_analysis": "Unable to analyze experience gap due to processing error.",
+            "keywords": [
+                {
+                    "keyword": "Error Processing Response",
+                    "importance": "Please try again or contact support if the issue persists.",
+                    "bullet_points": [
+                        {
+                            "point": "Technical error occurred during analysis.",
+                            "explanation": "The system encountered an error while processing the response."
+                        }
+                    ],
+                    "placement": "N/A"
+                }
+            ],
+            "overall_strategy": "Please try submitting your resume again."
+        }
+
 @app.route('/suggest_keywords', methods=['POST'])
 def suggest_keywords():
     if 'resume' not in request.files or 'job_description' not in request.form:
         return jsonify({'error': 'Resume file and job description are required.'}), 400
 
-    file = request.files['resume']
-    job_description = request.form['job_description']
+    try:
+        file = request.files['resume']
+        job_description = request.form['job_description']
 
-    if file.filename == '' or not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
+        if file.filename == '' or not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
 
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
 
-    resume_text = extract_text(file_path)
+        resume_text = extract_text(file_path)
 
-    # Keep the original detailed prompt
-    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+        prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
-1. First, analyze the resume to understand:
-   - The candidate's current experience level and role
-   - Technical skills, tools, and domain expertise
-   - Industry-specific achievements and certifications
-   - Current role and career trajectory
-   - Existing keyword density and placement
+Important Guidelines:
+1. DO NOT suggest keywords that already exist in the resume
+2. AVOID generic soft skills or buzzwords (e.g., teamwork, communication, leadership)
+3. FOCUS on technical, industry-specific, or role-specific keywords only
+4. Each bullet point MUST:
+   - Be between 50-100 characters (including spaces)
+   - Start with a strong action verb
+   - Include one measurable metric
+   - Be specific to the industry/role
+   - Be ATS-friendly
 
-2. Then, analyze the job description to identify:
-   - Must-have technical skills, tools, and technologies
-   - Required certifications and qualifications
-   - Desired experience levels and competencies
-   - Industry-specific terminology and frameworks
-   - Key responsibilities and deliverables
-   - Recurring keywords and their variations
-   - Technology stack requirements
-   - Domain-specific methodologies
+First analyze:
+1. Current resume:
+   - Extract existing keywords and technical terms
+   - Identify current skills and technologies mentioned
+   - Note industry-specific terms already present
 
-3. Based on this analysis, provide:
-   - High-impact keywords missing from the resume but crucial for ATS scoring
-   - Existing keywords that need stronger emphasis or modern context
-   - Industry-specific technical terms that would strengthen the application
-   - Role-specific tools and technologies mentioned in the job description
-   - Methodologies and frameworks valued in the industry
-   - Measurable metrics and achievements using these keywords
+2. Job description:
+   - Identify missing technical requirements
+   - Find industry-specific tools/frameworks not in resume
+   - Look for specialized methodologies or certifications
+   - Note required technical competencies absent from resume
 
-For each keyword suggestion:
-- Explain why it's specifically important for this role and industry
-- Detail how it impacts ATS scoring and ranking
-- Provide 2-3 ready-to-use bullet points that:
-  * Incorporate the keyword naturally and with proper context
-  * Include specific metrics and quantifiable achievements
-  * Use strong action verbs aligned with seniority level
-  * Are tailored to the candidate's experience level
-  * Follow ATS-friendly formatting and keyword placement
-  * Are industry-specific and technically accurate
-  * Include relevant tools and methodologies
-  * Demonstrate impact and results
+3. Compare and provide:
+   - ONLY keywords missing from resume but present in job description
+   - ONLY technical or specialized terms that add value
+   - ONLY industry-specific tools, frameworks, or methodologies
+   - Measurable achievements using these new keywords
+
+For each suggested keyword:
+- Verify it's NOT already in the resume
+- Ensure it's specific to the role/industry (no generic terms)
+- Provide concise, metric-driven bullet points
+- Focus on technical or specialized aspects
 
 Resume Text:
 {resume_text}
@@ -416,145 +509,51 @@ Resume Text:
 Job Description:
 {job_description}
 
-IMPORTANT: Respond with ONLY valid JSON matching this exact structure. Do not include any other text or explanations:
+Provide your response in the following JSON format:
 {{
-    "experience_gap_analysis": "Detailed analysis of gaps between resume and job requirements",
-    "keywords": [
+  "experience_gap_analysis": "Brief analysis of technical gaps between resume and job requirements",
+  "keywords": [
+    {{
+      "keyword": "Technical or specialized term NOT in resume",
+      "importance": "Why this specific technical keyword is crucial (max 100 chars)",
+      "bullet_points": [
         {{
-            "keyword": "Specific skill or technology",
-            "importance": "Why this keyword is crucial for ATS scoring and this role",
-            "bullet_points": [
-                {{
-                    "point": "Ready-to-use bullet point with metrics and context",
-                    "explanation": "Why this implementation is effective"
-                }}
-            ],
-            "placement": "Specific section where this should be added"
+          "point": "Concise bullet point (50-100 chars) with metric",
+          "explanation": "Why this implementation is effective (max 100 chars)"
         }}
-    ],
-    "overall_strategy": "Strategic approach for implementing all suggestions"
-}}"""
+      ],
+      "placement": "Specific section for maximum ATS impact"
+    }}
+  ],
+  "overall_strategy": "Technical implementation strategy (max 200 chars)"
+}}
+"""
 
-    try:
         response = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=2000,
-            temperature=0.8,
+            temperature=0.2,
             messages=[
                 {"role": "user", "content": prompt}
             ]
         )
 
-        def extract_json_safely(text):
-            """Extract and validate JSON from Claude's response with multiple fallback methods"""
-            
-            def clean_json_string(json_str):
-                # Basic cleaning
-                json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
-                json_str = re.sub(r'\\[^"\/bfnrtu]', '', json_str)
-                json_str = re.sub(r',\s*([}\]])', r'\1', json_str)  # Remove trailing commas
-                json_str = re.sub(r'\s+', ' ', json_str.strip())  # Normalize whitespace
-                return json_str
-
-            def attempt_json_parse(json_str):
-                try:
-                    return json.loads(json_str)
-                except json.JSONDecodeError:
-                    return None
-
-            # Method 1: Try to find JSON between first { and last }
-            text = text.strip()
-            json_start = text.find('{')
-            json_end = text.rfind('}') + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = clean_json_string(text[json_start:json_end])
-                result = attempt_json_parse(json_str)
-                if result:
-                    return result
-
-            # Method 2: Try to find JSON using regex pattern
-            json_pattern = r'\{(?:[^{}]|(?R))*\}'
-            matches = re.finditer(json_pattern, text, re.DOTALL)
-            for match in matches:
-                json_str = clean_json_string(match.group())
-                result = attempt_json_parse(json_str)
-                if result:
-                    return result
-
-            # Method 3: Try to fix common JSON issues
-            json_str = text
-            fixes = [
-                (r'"\s*,\s*}', '"}'),  # Fix trailing commas in objects
-                (r'"\s*,\s*]', '"]'),   # Fix trailing commas in arrays
-                (r'(\w+):', r'"\1":'),  # Quote unquoted keys
-                (r':\s*"([^"]*)\s*,', r':"\1",'),  # Fix missing quotes
-                (r'\\([^"\/bfnrtu])', r'\1'),  # Remove invalid escapes
-            ]
-            for pattern, replacement in fixes:
-                json_str = re.sub(pattern, replacement, json_str)
-            
-            result = attempt_json_parse(clean_json_string(json_str))
-            if result:
-                return result
-
-            raise ValueError("Could not extract valid JSON from response")
-
-        def validate_suggestions_structure(data):
-            """Validate the structure of the suggestions data"""
-            required_keys = {'experience_gap_analysis', 'keywords', 'overall_strategy'}
-            if not all(key in data for key in required_keys):
-                raise ValueError(f"Missing required keys. Found: {list(data.keys())}")
-
-            if not isinstance(data['keywords'], list):
-                raise ValueError("'keywords' must be a list")
-
-            for keyword in data['keywords']:
-                required_keyword_keys = {'keyword', 'importance', 'bullet_points', 'placement'}
-                if not all(key in keyword for key in required_keyword_keys):
-                    raise ValueError(f"Keyword missing required fields. Found: {list(keyword.keys())}")
-
-                if not isinstance(keyword['bullet_points'], list):
-                    raise ValueError("'bullet_points' must be a list")
-
-                for bullet in keyword['bullet_points']:
-                    if not all(key in bullet for key in {'point', 'explanation'}):
-                        raise ValueError("Bullet point missing required fields")
-
-            return True
-
-        # Extract and process the response
         response_content = response.content[0].text
         
-        try:
-            suggestions = extract_json_safely(response_content)
-            validate_suggestions_structure(suggestions)
-            
-            return jsonify({
-                'job_description': job_description,
-                'keyword_suggestions': suggestions
-            }), 200
+        # Use our new sanitizer function
+        suggestions = sanitize_llm_response(response_content)
 
-        except json.JSONDecodeError as je:
-            logging.error(f"JSON Decode Error: {str(je)}")
-            logging.error(f"Response content: {response_content[:1000]}")
-            return jsonify({
-                'error': 'Failed to parse AI response',
-                'details': str(je),
-                'response_content': response_content[:1000]  # First 1000 chars for debugging
-            }), 500
-            
-        except ValueError as ve:
-            logging.error(f"Validation Error: {str(ve)}")
-            logging.error(f"Invalid structure: {response_content[:1000]}")
-            return jsonify({
-                'error': 'Invalid response structure',
-                'details': str(ve),
-                'response_content': response_content[:1000]
-            }), 500
+        return jsonify({
+            'job_description': job_description,
+            'keyword_suggestions': suggestions
+        }), 200
 
     except Exception as e:
-        logging.error(f"General Error in suggest_keywords: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Error in suggest_keywords: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred while processing your request.',
+            'details': str(e)
+        }), 500
 
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
@@ -615,11 +614,7 @@ def upload_resume():
     else:
         return jsonify({'error': 'Invalid file type. Only PDF, DOC, and DOCX are allowed.'}), 400
 
-import os
-from flask import send_file, request, jsonify
-from b2sdk.v2 import InMemoryAccountInfo, B2Api
-from b2sdk.v2.exception import B2Error
-import io
+
 
 @app.route('/download_resume', methods=['GET'])
 def download_resume():
