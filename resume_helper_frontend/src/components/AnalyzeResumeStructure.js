@@ -41,6 +41,7 @@ const AnalyzeResumeStructure = () => {
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const loadingSteps = [
     { label: 'Parsing resume', description: 'Extracting text and structure...', icon: <DescriptionIcon /> },
@@ -714,7 +715,9 @@ const AnalyzeResumeStructure = () => {
     >
       <Box sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #1E293B 0%, #334155 50%, #475569 100%)'
+          : 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)',
         position: 'relative',
         overflow: 'hidden'
       }}>

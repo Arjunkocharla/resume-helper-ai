@@ -27,6 +27,7 @@ function Home() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [hoveredCard, setHoveredCard] = useState(null);
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
 
   const handleLogout = async () => {
     try {
@@ -70,10 +71,9 @@ function Home() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(to right, #F8FAFC 0%, #E2E8F0 30%, #CBD5E1 70%, #94A3B8 100%)',
-        // Alternative options if you'd like to try:
-        // background: 'linear-gradient(to right, #F8FAFC 0%, #E2E8F0 40%, #BAC7DA 75%, #94A3B8 100%)',
-        // background: 'linear-gradient(to right, #FFFFFF 0%, #EEF2FF 35%, #C7D2FE 70%, #A5B4FC 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #1E293B 0%, #334155 50%, #475569 100%)'  // Dark mode
+          : 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)', // Light mode
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',

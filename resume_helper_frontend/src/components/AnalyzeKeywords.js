@@ -440,7 +440,9 @@ function AnalyzeKeywords() {
     >
       <Box sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)',
+        background: theme.palette.mode === 'dark'
+          ? 'linear-gradient(135deg, #1E293B 0%, #334155 50%, #475569 100%)'
+          : 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)',
         position: 'relative',
         overflow: 'hidden'
       }}>

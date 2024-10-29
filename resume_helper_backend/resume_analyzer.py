@@ -19,11 +19,6 @@ from reportlab.lib.pagesizes import letter
 from PyPDF2 import PdfReader, PdfWriter
 import openai  # Import OpenAI for GPT
 import logging
-import os
-from flask import send_file, request, jsonify
-from b2sdk.v2 import InMemoryAccountInfo, B2Api
-from b2sdk.v2.exception import B2Error
-import io
 
 # Load environment variables
 load_dotenv()
@@ -149,8 +144,8 @@ def analyze_resume_structure():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As a senior resume analyst and ATS expert with extensive experience in multiple industries, conduct a comprehensive analysis of the following resume. Focus on ATS compatibility, keyword optimization, and industry-specific best practices. Provide a structured response in JSON format with the following components:
-
+    prompt = f"""As a senior resume analyst and ATS expert with extensive experience in multiple industries, conduct a comprehensive analysis of the following resume. Focus on ATS compatibility, keyword optimization, and industry-specific best practices.
+    Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
     1. "ATS_Compatibility_Score": An integer from 1-100 assessing how well the resume would perform in ATS scans. Consider factors such as formatting, use of standard section headings, and keyword relevance.
 
     2. "Keywords_Analysis": {{
@@ -227,19 +222,79 @@ def analyze_resume_structure():
         # Log the response content for debugging
         print("Response Content:", response_content)
 
-        # Attempt to parse the JSON directly
-        try:
-            analysis = json.loads(response_content)
-            return jsonify(analysis), 200
-        except json.JSONDecodeError as e:
-            # If JSON parsing fails, return the raw content for debugging
+        # Find the JSON part of the response
+        json_start = response_content.find('{')
+        json_end = response_content.rfind('}') + 1
+        
+        if json_start == -1 or json_end == 0:
+            # If no JSON found, return a fallback response
             return jsonify({
-                'error': f'Failed to parse JSON: {str(e)}',
-                'raw_content': response_content
-            }), 500
+                'ATS_Compatibility_Score': 50,
+                'Keywords_Analysis': {
+                    'Present_Keywords': [],
+                    'Missing_Keywords': [],
+                    'Keyword_Density': '0%',
+                    'Keyword_Distribution': {}
+                },
+                'ATS_Friendly_Structure': {
+                    'Format_Score': 5,
+                    'Section_Order': [],
+                    'Recommended_Section_Order': ['Contact Information', 'Summary', 'Experience', 'Education', 'Skills'],
+                    'Formatting_Issues': ['Unable to analyze resume format']
+                },
+                'Content_Analysis': {
+                    'Total_Word_Count': len(resume_text.split()),
+                    'Bullet_Points_Count': 0,
+                    'Action_Verbs_Count': 0,
+                    'Quantifiable_Achievements_Count': 0,
+                    'Average_Bullet_Length': 0.0,
+                    'Skills_Section_Analysis': {}
+                },
+                'ATS_Optimization_Tips': ['Unable to generate specific recommendations'],
+                'Strengths': ['Unable to identify specific strengths'],
+                'Industry_Specific_Suggestions': {
+                    'Inferred_Industry': 'Unknown',
+                    'Industry_Keywords': [],
+                    'Industry_Specific_Tips': [],
+                    'Emerging_Trends': []
+                },
+                'Overall_Assessment': 'Unable to perform detailed analysis. Please ensure the resume is in a readable format.',
+                'Industry_Standards': {
+                    'Word_Count_Range': '400-600',
+                    'Keyword_Density_Range': '2%-3.5%',
+                    'Bullet_Points_Range': '15-25',
+                    'Sections_Importance': {},
+                    'Key_Action_Verbs': [],
+                    'Ideal_Quantifiable_Achievements': 5,
+                    'File_Format_Preference': 'PDF, DOCX',
+                    'Optimal_Length_Pages': '1-2'
+                },
+                'Tailored_Improvement_Plan': ['Review resume format', 'Ensure content is readable', 'Try submitting again']
+            }), 200
+
+        # Extract and try to parse the JSON part
+        json_str = response_content[json_start:json_end]
+        try:
+            analysis = json.loads(json_str)
+            return jsonify(analysis), 200
+        except json.JSONDecodeError:
+            # If JSON is invalid, try to clean it up
+            cleaned_json = json_str.replace('\n', ' ').replace('\r', '')
+            try:
+                analysis = json.loads(cleaned_json)
+                return jsonify(analysis), 200
+            except json.JSONDecodeError:
+                # If still invalid, return the fallback response
+                return jsonify({
+                    'error': 'Failed to parse analysis results',
+                    'message': 'The resume analysis service is temporarily unavailable. Please try again.'
+                }), 500
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'message': 'An unexpected error occurred during analysis.'
+        }), 500
 
 @app.route('/analyze_keywords', methods=['POST'])
 def analyze_keywords():
@@ -357,151 +412,63 @@ def analyze_resume_length():
     else:
         return jsonify({'error': 'Invalid file type. Only PDF and DOCX are allowed.'}), 400
 
-def sanitize_llm_response(response_text):
-    """Sanitize and structure the LLM response into a consistent format"""
-    try:
-        # First try to find and parse JSON directly
-        json_start = response_text.find('{')
-        json_end = response_text.rfind('}') + 1
-        json_str = response_text[json_start:json_end]
-        
-        # Remove any special characters, extra spaces, or invalid Unicode
-        json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
-        json_str = re.sub(r'\s+', ' ', json_str)
-        
-        # Try to parse the JSON
-        data = json.loads(json_str)
-        
-        # Ensure the required structure exists
-        sanitized_data = {
-            "experience_gap_analysis": "",
-            "keywords": [],
-            "overall_strategy": ""
-        }
-        
-        # Sanitize experience gap analysis
-        if "experience_gap_analysis" in data:
-            sanitized_data["experience_gap_analysis"] = str(data["experience_gap_analysis"]).strip()
-        
-        # Sanitize keywords array
-        if "keywords" in data and isinstance(data["keywords"], list):
-            for keyword in data["keywords"]:
-                sanitized_keyword = {
-                    "keyword": "",
-                    "importance": "",
-                    "bullet_points": [],
-                    "placement": ""
-                }
-                
-                # Sanitize keyword fields
-                if "keyword" in keyword:
-                    sanitized_keyword["keyword"] = str(keyword["keyword"]).strip()
-                if "importance" in keyword:
-                    sanitized_keyword["importance"] = str(keyword["importance"]).strip()
-                if "placement" in keyword:
-                    sanitized_keyword["placement"] = str(keyword["placement"]).strip()
-                
-                # Sanitize bullet points
-                if "bullet_points" in keyword and isinstance(keyword["bullet_points"], list):
-                    for point in keyword["bullet_points"]:
-                        if isinstance(point, dict):
-                            sanitized_point = {
-                                "point": str(point.get("point", "")).strip(),
-                                "explanation": str(point.get("explanation", "")).strip()
-                            }
-                            sanitized_keyword["bullet_points"].append(sanitized_point)
-                        elif isinstance(point, str):
-                            # Handle case where bullet point is just a string
-                            sanitized_point = {
-                                "point": point.strip(),
-                                "explanation": "No explanation provided"
-                            }
-                            sanitized_keyword["bullet_points"].append(sanitized_point)
-                
-                sanitized_data["keywords"].append(sanitized_keyword)
-        
-        # Sanitize overall strategy
-        if "overall_strategy" in data:
-            sanitized_data["overall_strategy"] = str(data["overall_strategy"]).strip()
-        
-        return sanitized_data
-        
-    except Exception as e:
-        logging.error(f"Error sanitizing LLM response: {str(e)}")
-        # Return a minimal valid structure if parsing fails
-        return {
-            "experience_gap_analysis": "Unable to analyze experience gap due to processing error.",
-            "keywords": [
-                {
-                    "keyword": "Error Processing Response",
-                    "importance": "Please try again or contact support if the issue persists.",
-                    "bullet_points": [
-                        {
-                            "point": "Technical error occurred during analysis.",
-                            "explanation": "The system encountered an error while processing the response."
-                        }
-                    ],
-                    "placement": "N/A"
-                }
-            ],
-            "overall_strategy": "Please try submitting your resume again."
-        }
-
 @app.route('/suggest_keywords', methods=['POST'])
 def suggest_keywords():
     if 'resume' not in request.files or 'job_description' not in request.form:
         return jsonify({'error': 'Resume file and job description are required.'}), 400
 
-    try:
-        file = request.files['resume']
-        job_description = request.form['job_description']
+    file = request.files['resume']
+    job_description = request.form['job_description']
 
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
 
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
 
-        resume_text = extract_text(file_path)
+    resume_text = extract_text(file_path)
 
-        prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
-Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
+    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+    Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
-Important Guidelines:
-1. DO NOT suggest keywords that already exist in the resume
-2. AVOID generic soft skills or buzzwords (e.g., teamwork, communication, leadership)
-3. FOCUS on technical, industry-specific, or role-specific keywords only
-4. Each bullet point MUST:
-   - Be between 50-100 characters (including spaces)
-   - Start with a strong action verb
-   - Include one measurable metric
-   - Be specific to the industry/role
-   - Be ATS-friendly
+1. First, analyze the resume to understand:
+   - The candidate's current experience level and role
+   - Technical skills, tools, and domain expertise
+   - Industry-specific achievements and certifications
+   - Current role and career trajectory
+   - Existing keyword density and placement
 
-First analyze:
-1. Current resume:
-   - Extract existing keywords and technical terms
-   - Identify current skills and technologies mentioned
-   - Note industry-specific terms already present
+2. Then, analyze the job description to identify:
+   - Must-have technical skills, tools, and technologies
+   - Required certifications and qualifications
+   - Desired experience levels and competencies
+   - Industry-specific terminology and frameworks
+   - Key responsibilities and deliverables
+   - Recurring keywords and their variations
+   - Technology stack requirements
+   - Domain-specific methodologies
 
-2. Job description:
-   - Identify missing technical requirements
-   - Find industry-specific tools/frameworks not in resume
-   - Look for specialized methodologies or certifications
-   - Note required technical competencies absent from resume
+3. Based on this analysis, provide:
+   - High-impact keywords missing from the resume but crucial for ATS scoring
+   - Existing keywords that need stronger emphasis or modern context
+   - Industry-specific technical terms that would strengthen the application
+   - Role-specific tools and technologies mentioned in the job description
+   - Methodologies and frameworks valued in the industry
+   - Measurable metrics and achievements using these keywords
 
-3. Compare and provide:
-   - ONLY keywords missing from resume but present in job description
-   - ONLY technical or specialized terms that add value
-   - ONLY industry-specific tools, frameworks, or methodologies
-   - Measurable achievements using these new keywords
-
-For each suggested keyword:
-- Verify it's NOT already in the resume
-- Ensure it's specific to the role/industry (no generic terms)
-- Provide concise, metric-driven bullet points
-- Focus on technical or specialized aspects
+For each keyword suggestion:
+- Explain why it's specifically important for this role and industry
+- Detail how it impacts ATS scoring and ranking
+- Provide 2-3 ready-to-use bullet points that:
+  * Incorporate the keyword naturally and with proper context
+  * Include specific metrics and quantifiable achievements
+  * Use strong action verbs aligned with seniority level
+  * Are tailored to the candidate's experience level
+  * Follow ATS-friendly formatting and keyword placement
+  * Are industry-specific and technically accurate
+  * Include relevant tools and methodologies
+  * Demonstrate impact and results
 
 Resume Text:
 {resume_text}
@@ -511,37 +478,54 @@ Job Description:
 
 Provide your response in the following JSON format:
 {{
-  "experience_gap_analysis": "Brief analysis of technical gaps between resume and job requirements",
+  "experience_gap_analysis": "A detailed analysis of the gap between current resume and job requirements",
   "keywords": [
     {{
-      "keyword": "Technical or specialized term NOT in resume",
-      "importance": "Why this specific technical keyword is crucial (max 100 chars)",
+      "keyword": "Specific technical or professional term",
+      "importance": "Detailed explanation of why this keyword is crucial for this specific role and its impact on ATS scoring",
       "bullet_points": [
         {{
-          "point": "Concise bullet point (50-100 chars) with metric",
-          "explanation": "Why this implementation is effective (max 100 chars)"
+          "point": "Complete, ready-to-use bullet point with metrics and context",
+          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
         }}
       ],
-      "placement": "Specific section for maximum ATS impact"
+      "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
     }}
   ],
-  "overall_strategy": "Technical implementation strategy (max 200 chars)"
+  "overall_strategy": "Comprehensive strategy for implementing these changes effectively and optimizing ATS scoring"
 }}
 """
 
+    try:
         response = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=2000,
-            temperature=0.2,
+            temperature=0.3,
             messages=[
                 {"role": "user", "content": prompt}
             ]
         )
 
         response_content = response.content[0].text
-        
-        # Use our new sanitizer function
-        suggestions = sanitize_llm_response(response_content)
+        json_start = response_content.find('{')
+        json_end = response_content.rfind('}') + 1
+        json_str = response_content[json_start:json_end]
+
+        # Sanitize the JSON string
+        json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
+
+        # Add error handling for JSON parsing
+        try:
+            suggestions = json.loads(json_str)
+        except json.JSONDecodeError as json_error:
+            # If JSON parsing fails, return the error details
+            return jsonify({
+                'error': f'Failed to parse JSON: {str(json_error)}',
+                'json_str': json_str,
+                'error_position': json_error.pos,
+                'error_lineno': json_error.lineno,
+                'error_colno': json_error.colno
+            }), 500
 
         return jsonify({
             'job_description': job_description,
@@ -549,11 +533,7 @@ Provide your response in the following JSON format:
         }), 200
 
     except Exception as e:
-        logging.error(f"Error in suggest_keywords: {str(e)}")
-        return jsonify({
-            'error': 'An error occurred while processing your request.',
-            'details': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_resume', methods=['POST'])
 def upload_resume():
@@ -614,7 +594,11 @@ def upload_resume():
     else:
         return jsonify({'error': 'Invalid file type. Only PDF, DOC, and DOCX are allowed.'}), 400
 
-
+import os
+from flask import send_file, request, jsonify
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from b2sdk.v2.exception import B2Error
+import io
 
 @app.route('/download_resume', methods=['GET'])
 def download_resume():
