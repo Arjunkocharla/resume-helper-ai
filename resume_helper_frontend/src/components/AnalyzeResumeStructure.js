@@ -539,29 +539,69 @@ const AnalyzeResumeStructure = () => {
   };
 
   const renderKeywordsAnalysis = () => {
-    const { Keywords_Analysis, Industry_Standards } = analysis || {};
-    if (!Keywords_Analysis || !Industry_Standards) return null;
+    const { Keywords_Analysis, Industry_Specific_Suggestions } = analysis || {};
+    if (!Keywords_Analysis) return null;
+
+    const chipStyles = {
+      background: '#3B82F6',
+      color: 'white',
+      fontWeight: 500,
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+      },
+      transition: 'all 0.2s ease-in-out'
+    };
 
     return (
-      <Box mb={3}>
+      <Box mb={4}>
         <Typography variant="h6" gutterBottom>Key Terms</Typography>
         <Grid container spacing={3}>
+          <Grid item xs={12} mb={2}>
+            <Typography variant="subtitle1" sx={{ color: '#3B82F6', fontWeight: 500 }}>
+              Inferred Industry: {Industry_Specific_Suggestions?.Inferred_Industry}
+            </Typography>
+          </Grid>
           <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-              <Typography variant="subtitle1" gutterBottom>Present in Your Resume</Typography>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3,
+                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
+                borderRadius: '16px',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              <Typography variant="subtitle1" gutterBottom>Present Keywords</Typography>
               <Box display="flex" flexWrap="wrap" gap={1}>
                 {Keywords_Analysis.Present_Keywords.map((keyword, index) => (
-                  <Chip key={index} label={keyword} color="primary" variant="outlined" />
+                  <Chip
+                    key={index}
+                    label={keyword}
+                    sx={chipStyles}
+                  />
                 ))}
               </Box>
             </Paper>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-              <Typography variant="subtitle1" gutterBottom>Suggested Additions</Typography>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3,
+                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
+                borderRadius: '16px',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              <Typography variant="subtitle1" gutterBottom>Suggested Keywords</Typography>
               <Box display="flex" flexWrap="wrap" gap={1}>
                 {Keywords_Analysis.Missing_Keywords.map((keyword, index) => (
-                  <Chip key={index} label={keyword} color="secondary" variant="outlined" />
+                  <Chip
+                    key={index}
+                    label={keyword}
+                    sx={chipStyles}
+                  />
                 ))}
               </Box>
             </Paper>
@@ -616,78 +656,6 @@ const AnalyzeResumeStructure = () => {
             </Box>
           </Box>
         </Paper>
-      </Box>
-    );
-  };
-
-  const renderATSFriendlyStructure = () => {
-    const { ATS_Friendly_Structure, Industry_Standards } = analysis || {};
-    if (!ATS_Friendly_Structure || !Industry_Standards) return null;
-
-    return (
-      <Box mb={3}>
-        <Typography variant="h6" gutterBottom>ATS-Friendly Structure</Typography>
-        <Paper elevation={2} sx={{ p: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="subtitle1">Format Score: {ATS_Friendly_Structure.Format_Score}/10</Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={ATS_Friendly_Structure.Format_Score * 10} 
-                sx={{ mt: 1, mb: 2, height: 10, borderRadius: 5 }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="subtitle1">File Format Preference</Typography>
-              <Typography variant="body2">{Industry_Standards.File_Format_Preference}</Typography>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Box>
-    );
-  };
-
-  const renderIndustrySpecificSuggestions = () => {
-    const { Industry_Specific_Suggestions, Industry_Standards } = analysis || {};
-    if (!Industry_Specific_Suggestions || !Industry_Standards) return null;
-
-    const radarData = {
-      labels: Object.keys(Industry_Standards.Sections_Importance),
-      datasets: [
-        {
-          label: 'Section Importance',
-          data: Object.values(Industry_Standards.Sections_Importance),
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
-        },
-      ],
-    };
-
-    return (
-      <Box mb={3}>
-        <Typography variant="h6" gutterBottom>Industry-Specific Analysis</Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-              <Typography variant="subtitle1" gutterBottom>Inferred Industry: {Industry_Specific_Suggestions.Inferred_Industry}</Typography>
-              <Typography variant="subtitle1" gutterBottom>Top Industry Keywords:</Typography>
-              <Box display="flex" flexWrap="wrap" gap={1}>
-                {Industry_Specific_Suggestions.Industry_Keywords.slice(0, 15).map((keyword, index) => (
-                  <Chip key={index} label={keyword} color="primary" size="small" />
-                ))}
-              </Box>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 2, height: '100%' }}>
-              <Typography variant="subtitle1" gutterBottom>Section Importance</Typography>
-              <Box height={250}>
-                <Radar data={radarData} options={{ maintainAspectRatio: false }} />
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
       </Box>
     );
   };
@@ -758,24 +726,133 @@ const AnalyzeResumeStructure = () => {
     </Box>
   );
 
-  const renderAnalysisResults = () => (
-    <Box sx={{
-      background: 'white',
-      borderRadius: '24px',
-      border: '1px solid rgba(59, 130, 246, 0.1)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-      p: 4,
-    }}>
-      {/* Keep your existing analysis results content */}
-      {renderATSScore()}
-      {renderContentMetrics()}
-      {renderKeywordsAnalysis()}
-      {renderSectionOrder()}
-      {renderATSFriendlyStructure()}
-      {renderIndustrySpecificSuggestions()}
-      {renderImprovements()}
-    </Box>
-  );
+  const getRadarData = (analysis) => {
+    const { Industry_Standards } = analysis || {};
+    if (!Industry_Standards?.Sections_Importance) return null;
+
+    return {
+      labels: Object.keys(Industry_Standards.Sections_Importance),
+      datasets: [
+        {
+          label: 'Section Importance',
+          data: Object.values(Industry_Standards.Sections_Importance),
+          backgroundColor: 'rgba(59, 130, 246, 0.2)',
+          borderColor: '#3B82F6',
+          borderWidth: 2,
+          pointBackgroundColor: '#3B82F6',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#3B82F6'
+        }
+      ]
+    };
+  };
+
+  const renderAnalysisResults = () => {
+    const radarData = getRadarData(analysis);
+
+    return (
+      <Box sx={{
+        background: 'white',
+        borderRadius: '24px',
+        border: '1px solid rgba(59, 130, 246, 0.1)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        p: 4,
+      }}>
+        {/* Visual Metrics Section */}
+        <Grid container spacing={3} mb={4}>
+          {/* ATS Score as a circular progress */}
+          <Grid item xs={12} md={6}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3, 
+                height: '100%',  // Make it full height
+                textAlign: 'center',
+                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
+                borderRadius: '16px',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
+            >
+              <CircularProgress 
+                variant="determinate" 
+                value={analysis?.ATS_Compatibility_Score || 0}
+                size={160}  // Increased size
+                thickness={4}
+                sx={{
+                  color: '#3B82F6',
+                  '& .MuiCircularProgress-circle': {
+                    strokeLinecap: 'round',
+                  }
+                }}
+              />
+              <Typography variant="h5" sx={{ mt: 2, fontWeight: 600 }}>
+                ATS Score
+              </Typography>
+              <Typography variant="h4" sx={{ color: '#3B82F6', fontWeight: 700 }}>
+                {analysis?.ATS_Compatibility_Score}%
+              </Typography>
+            </Paper>
+          </Grid>
+
+          {/* Radar Chart for Section Importance */}
+          <Grid item xs={12} md={6}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 3,
+                height: '100%',  // Make it full height
+                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
+                borderRadius: '16px',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)'
+              }}
+            >
+              <Typography variant="h6" gutterBottom>Section Importance</Typography>
+              <Box height={300}>  // Increased height
+                {radarData && (
+                  <Radar 
+                    data={radarData} 
+                    options={{ 
+                      maintainAspectRatio: false,
+                      scales: {
+                        r: {
+                          beginAtZero: true,
+                          ticks: {
+                            display: false
+                          }
+                        }
+                      },
+                      elements: {
+                        line: {
+                          borderWidth: 3
+                        },
+                        point: {
+                          radius: 4
+                        }
+                      }
+                    }} 
+                  />
+                )}
+              </Box>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Keywords Analysis with Inferred Industry */}
+        {renderKeywordsAnalysis()}
+        
+        {/* Section Order with animated flow */}
+        {renderSectionOrder()}
+        
+        {/* Improvements at the bottom */}
+        {renderImprovements()}
+      </Box>
+    );
+  };
 
   return (
     <motion.div
