@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { Radar } from 'react-chartjs-2';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip as ChartTooltip, Legend } from 'chart.js';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
@@ -41,7 +41,6 @@ const AnalyzeResumeStructure = () => {
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
   const navigate = useNavigate();
-  const theme = useTheme();
 
   const loadingSteps = [
     { label: 'Parsing resume', description: 'Extracting text and structure...', icon: <DescriptionIcon /> },
@@ -103,11 +102,11 @@ const AnalyzeResumeStructure = () => {
 
   const handleHomeClick = () => navigate('/');
   const handleProfileClick = () => navigate('/profile');
-  const handleStartNew = () => {
+  const handleRestart = () => {
     setFile(null);
     setAnalysis(null);
-    setError(null);
     setActiveStep(0);
+    setError(null);
   };
 
   const handleLogout = async () => {
@@ -693,81 +692,100 @@ const AnalyzeResumeStructure = () => {
     );
   };
 
+  const renderImprovements = () => (
+    <Box sx={{ mt: 4 }}>
+      <Typography 
+        variant="h5" 
+        sx={{ 
+          mb: 3,
+          color: '#1E293B',
+          fontWeight: 600,
+          fontSize: '1.5rem'
+        }}
+      >
+        Recommended Improvements
+      </Typography>
+      <Grid container spacing={2}>
+        {analysis?.Tailored_Improvement_Plan?.map((improvement, index) => (
+          <Grid item xs={12} key={index}>
+            <Box
+              sx={{
+                background: 'rgba(59, 130, 246, 0.02)',
+                borderRadius: '12px',
+                p: 2.5,
+                border: '1px solid rgba(59, 130, 246, 0.1)',
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                <BuildIcon sx={{ 
+                  color: '#3B82F6',
+                  fontSize: 20,
+                  mt: 0.5
+                }} />
+                <Box>
+                  <Typography 
+                    sx={{ 
+                      color: '#1E293B',
+                      fontWeight: 500,
+                      fontSize: '0.95rem',
+                      mb: 0.5
+                    }}
+                  >
+                    {improvement.action || improvement}
+                  </Typography>
+                  {improvement.reason && (
+                    <Typography 
+                      sx={{ 
+                        color: '#64748B',
+                        lineHeight: 1.5,
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {improvement.reason}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+
+  const renderAnalysisResults = () => (
+    <Box sx={{
+      background: 'white',
+      borderRadius: '24px',
+      border: '1px solid rgba(59, 130, 246, 0.1)',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      p: 4,
+    }}>
+      {/* Keep your existing analysis results content */}
+      {renderATSScore()}
+      {renderContentMetrics()}
+      {renderKeywordsAnalysis()}
+      {renderSectionOrder()}
+      {renderATSFriendlyStructure()}
+      {renderIndustrySpecificSuggestions()}
+      {renderImprovements()}
+    </Box>
+  );
+
   return (
     <motion.div
-      initial={{ 
-        opacity: 0,
-        y: 20  // Reduced from 40 to make it more subtle
-      }}
-      animate={{ 
-        opacity: 1,
-        y: 0
-      }}
-      transition={{ 
-        duration: 0.5,  // Increased from 0.3 to match SuggestKeywords
-        ease: "easeOut"  // Simplified easing function to prevent glitch
-      }}
-      style={{ 
-        width: '100%',  // Prevent layout shift
-        height: '100%',
-        willChange: 'transform'  // Optimize animation performance
-      }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <Box sx={{
-        minHeight: '100vh',
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, #1E293B 0%, #334155 50%, #475569 100%)'
-          : 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Floating background elements */}
-        <Box sx={{
-          position: 'absolute',
-          width: '100%',
-          height: '100%',
-          opacity: 0.6,
-          zIndex: 0,
-          overflow: 'hidden'
-        }}>
-          {[...Array(5)].map((_, i) => (
-            <motion.div
-              key={i}
-              animate={{
-                y: [0, -20, 0],
-                rotate: [0, 10, 0],
-                scale: [1, 1.05, 1]
-              }}
-              transition={{
-                duration: 8,
-                delay: i * 1.2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              style={{
-                position: 'absolute',
-                width: '300px',
-                height: '300px',
-                borderRadius: '50%',
-                background: `radial-gradient(circle, ${
-                  ['#e0e7ff33', '#dbeafe33', '#e0f2fe33', '#f0f9ff33', '#f8fafc33'][i]
-                } 0%, transparent 70%)`,
-                left: `${[10, 60, 20, 70, 40][i]}%`,
-                top: `${[20, 60, 80, 30, 50][i]}%`,
-                transform: 'translate(-50%, -50%)',
-                filter: 'blur(40px)',
-              }}
-            />
-          ))}
-        </Box>
-
-        {/* AppBar with exact same positioning */}
-        <AppBar position="static" elevation={0} 
-          sx={{ 
-            background: 'transparent', 
-            backdropFilter: 'blur(10px)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-          }}>
+      <Box sx={{ minHeight: '100vh', background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)' }}>
+        {/* Keep existing AppBar */}
+        <AppBar position="static" sx={{ background: 'transparent', boxShadow: 'none' }}>
           <Container maxWidth="xl">
             <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
               <Typography 
@@ -790,7 +808,7 @@ const AnalyzeResumeStructure = () => {
               
               {analysis && (
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <IconButton onClick={handleStartNew} 
+                  <IconButton onClick={handleRestart} 
                     sx={{ 
                       color: '#1E3A8A',
                       background: 'rgba(255, 255, 255, 0.1)',
@@ -831,53 +849,57 @@ const AnalyzeResumeStructure = () => {
           </Container>
         </AppBar>
 
-        {/* Main content with exact same container settings */}
+        {/* Main Content */}
         <Container maxWidth="xl" sx={{ mt: { xs: 4, md: 8 }, position: 'relative', zIndex: 1 }}>
-          {renderUploadSection()}
+          <AnimatePresence mode="wait">
+            {!analysis ? (
+              <motion.div
+                key="upload"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+              >
+                {renderUploadSection()}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="results"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                {/* Restart Button */}
+                <Box sx={{ position: 'absolute', top: 24, right: 24, zIndex: 10 }}>
+                  <Button
+                    onClick={handleRestart}
+                    startIcon={<RefreshIcon />}
+                    variant="outlined"
+                    sx={{
+                      borderColor: '#3B82F6',
+                      color: '#3B82F6',
+                      '&:hover': {
+                        borderColor: '#2563EB',
+                        background: 'rgba(59, 130, 246, 0.05)'
+                      }
+                    }}
+                  >
+                    Analyze New Resume
+                  </Button>
+                </Box>
+                
+                {renderAnalysisResults()}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {error && (
-            <Alert severity="error" sx={{ mt: 2, mb: 4 }}>
+            <Alert severity="error" sx={{ mt: 2 }}>
               {error}
             </Alert>
           )}
+          
           {loading && renderLoadingState()}
-          {analysis && (
-            <Fade in={true} timeout={1000}>
-              <Box
-                sx={{
-                  background: 'white',
-                  borderRadius: '24px',
-                  border: '1px solid rgba(59, 130, 246, 0.1)',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  p: 4,
-                }}
-              >
-                {renderATSScore()}
-                {renderContentMetrics()}
-                {renderStrengthsAndImprovements()}
-                <Divider sx={{ my: 4, bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
-                {renderKeywordsAnalysis()}
-                {renderSectionOrder()}
-                {renderATSFriendlyStructure()}
-                {renderIndustrySpecificSuggestions()}
-                <Accordion sx={{
-                  background: 'white',
-                  color: '#1E293B',
-                  '&.Mui-expanded': {
-                    margin: 0,
-                  },
-                }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#1E293B' }} />}>
-                    <Typography>Overall Assessment</Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                      {analysis.Overall_Assessment}
-                    </Typography>
-                  </AccordionDetails>
-                </Accordion>
-              </Box>
-            </Fade>
-          )}
         </Container>
       </Box>
     </motion.div>
