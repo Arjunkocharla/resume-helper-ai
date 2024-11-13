@@ -13,7 +13,6 @@ import AnalyzeResumeStructure from './components/AnalyzeResumeStructure';
 import Login from './components/Login';
 import SignUp from './components/Signup';
 import Home from './components/home';
-import Welcome from './components/Welcome';
 import UserProfileComponent from './components/UserProfileComponent'; // Import the UserProfileComponent
 
 // Create a theme instance
@@ -21,17 +20,13 @@ const theme = createTheme();
 
 function App() {
   const [user, setUser] = useState(null);
-  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Check if the user is new (you might want to store this in your database)
-        setIsNewUser(currentUser.metadata.creationTime === currentUser.metadata.lastSignInTime);
       } else {
         setUser(null);
-        setIsNewUser(false);
       }
     });
     return unsubscribe;
@@ -44,18 +39,14 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/welcome" element={
-            user && isNewUser ? <Welcome /> : <Navigate to="/home" />
-          } />
           <Route path="/home" element={<Home />} />
           <Route path="/analyze-length" element={<AnalyzeResumeLength />} />
           <Route path="/analyze-keywords" element={<AnalyzeKeywords />} />
           <Route path="/suggest-keywords" element={<SuggestKeywords />} />
           <Route path="/analyze-resume-structure" element={<AnalyzeResumeStructure />} />
-          <Route path="/profile" element={<UserProfileComponent />} /> {/* Add this route */}
+          <Route path="/profile" element={<UserProfileComponent />} />
           <Route path="/" element={
-            user ? (isNewUser ? <Navigate to="/welcome" /> : <Navigate to="/home" />)
-            : <Navigate to="/login" />
+            user ? <Navigate to="/home" /> : <Navigate to="/login" />
           } />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
