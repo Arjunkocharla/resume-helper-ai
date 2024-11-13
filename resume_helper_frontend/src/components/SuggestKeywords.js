@@ -62,6 +62,21 @@ function SuggestKeywords() {
     setError('');
   };
 
+  const callSuggestKeywordsAPI = async (retry = false) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    formData.append('job_description', jobDescription);
+    formData.append('retry', retry.toString());
+
+    const response = await fetch('http://127.0.0.1:5000/suggest_keywords', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to analyze resume');
+    return await response.json();
+  };
+
   const handleSubmit = async () => {
     if (!file || !jobDescription.trim()) {
       setError('Please provide both a resume and job description');
@@ -72,21 +87,20 @@ function SuggestKeywords() {
     setSuggestions(null);
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append('resume', file);
-    formData.append('job_description', jobDescription);
-
     try {
-      const response = await fetch('http://127.0.0.1:5000/suggest_keywords', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to analyze resume');
-      const data = await response.json();
+      // First attempt
+      const data = await callSuggestKeywordsAPI(false);
       setSuggestions(data.keyword_suggestions);
     } catch (err) {
-      setError(err.message || 'An error occurred while analyzing the resume');
+      console.error('First attempt failed:', err);
+      try {
+        // Retry with retry=true if first attempt fails
+        const retryData = await callSuggestKeywordsAPI(true);
+        setSuggestions(retryData.keyword_suggestions);
+      } catch (retryErr) {
+        console.error('Retry attempt failed:', retryErr);
+        setError('Failed to analyze resume after multiple attempts. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

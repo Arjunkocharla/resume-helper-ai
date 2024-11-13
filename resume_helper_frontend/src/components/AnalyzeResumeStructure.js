@@ -40,6 +40,7 @@ const AnalyzeResumeStructure = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
   const navigate = useNavigate();
 
   const loadingSteps = [
@@ -70,34 +71,45 @@ const AnalyzeResumeStructure = () => {
 
   const handleSubmit = async () => {
     if (!file) {
-      setError('Please select a resume file.');
+      setError('Please upload a resume file');
       return;
     }
 
+    setError('');
+    setAnalysis(null);
     setLoading(true);
-    setError(null);
-    setActiveStep(0);
-
-    const formData = new FormData();
-    formData.append('resume', file);
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/analyze_resume_structure', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze resume');
-      }
-
-      const data = await response.json();
+      // First attempt
+      const data = await callAnalyzeAPI(false);
       setAnalysis(data);
     } catch (err) {
-      setError(err.message);
+      console.error('First attempt failed:', err);
+      try {
+        // Retry with retry=true if first attempt fails
+        const retryData = await callAnalyzeAPI(true);
+        setAnalysis(retryData);
+      } catch (retryErr) {
+        console.error('Retry attempt failed:', retryErr);
+        setError('Failed to analyze resume after multiple attempts. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const callAnalyzeAPI = async (retry = false) => {
+    const formData = new FormData();
+    formData.append('resume', file);
+    formData.append('retry', retry.toString());
+
+    const response = await fetch('http://127.0.0.1:5000/analyze_resume_structure', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to analyze resume');
+    return await response.json();
   };
 
   const handleHomeClick = () => navigate('/');
@@ -119,128 +131,143 @@ const AnalyzeResumeStructure = () => {
   };
 
   const renderLoadingState = () => (
-    <Box sx={{ 
-      maxWidth: 600, 
-      margin: '0 auto', 
-      mt: 4, 
-      background: 'white',
-      borderRadius: '24px',
-      p: 4,
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    }}>
-      <Typography variant="h6" sx={{ 
-        color: '#1E293B',
-        textAlign: 'center',
-        mb: 4 
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        p: 3
+      }}
+    >
+      {/* Animated Logo or Icon */}
+      <motion.div
+        animate={{
+          scale: [1, 1.1, 1],
+          rotate: [0, 360],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        style={{ marginBottom: '2rem' }}
+      >
+        <DescriptionIcon sx={{ fontSize: 48, color: '#3B82F6' }} />
+      </motion.div>
+
+      {/* Steps Progress */}
+      <Box sx={{ 
+        maxWidth: '800px',
+        width: '100%',
+        background: 'white',
+        borderRadius: '24px',
+        p: { xs: 3, md: 4 },
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
       }}>
-        Analyzing Your Resume
-      </Typography>
+        {/* Current Step Info */}
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h5" sx={{ color: '#1E3A8A', mb: 1, fontWeight: 600 }}>
+            {loadingSteps[activeStep].label}
+          </Typography>
+          <Typography sx={{ color: '#64748B' }}>
+            {loadingSteps[activeStep].description}
+          </Typography>
+        </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
-        {loadingSteps.map((step, index) => (
-          <Box
-            key={step.label}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              position: 'relative',
-              width: '120px'
-            }}
-          >
-            {/* Connector line */}
-            {index < loadingSteps.length - 1 && (
-              <Box sx={{
-                position: 'absolute',
-                top: '20px',
-                right: '-50%',
-                width: '100%',
-                height: '2px',
-                bgcolor: index < activeStep ? '#3B82F6' : 'rgba(203, 213, 225, 0.5)',
-                transition: 'background-color 0.3s ease'
-              }} />
-            )}
-
-            {/* Step circle */}
-            <Box sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: index <= activeStep ? 'rgba(59, 130, 246, 0.1)' : 'rgba(203, 213, 225, 0.2)',
-              color: index <= activeStep ? '#3B82F6' : '#94A3B8',
-              transition: 'all 0.3s ease',
-              mb: 2,
-              zIndex: 1
-            }}>
-              {index === activeStep ? (
-                <CircularProgress size={24} sx={{ color: '#3B82F6' }} />
-              ) : index < activeStep ? (
-                <CheckCircleIcon />
-              ) : (
-                step.icon
-              )}
-            </Box>
-
-            {/* Step label */}
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: index <= activeStep ? '#1E293B' : '#94A3B8',
-                textAlign: 'center',
-                fontWeight: index === activeStep ? 500 : 400,
-                transition: 'all 0.3s ease'
+        {/* Progress Steps */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          mb: 4,
+          position: 'relative'
+        }}>
+          {loadingSteps.map((step, index) => (
+            <Box
+              key={step.label}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative',
+                zIndex: 1
               }}
             >
-              {step.label}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
+              <motion.div
+                animate={index <= activeStep ? {
+                  scale: [1, 1.2, 1],
+                  transition: { duration: 0.5 }
+                } : {}}
+              >
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: index <= activeStep ? '#3B82F6' : 'rgba(203, 213, 225, 0.2)',
+                  color: index <= activeStep ? 'white' : '#94A3B8',
+                  transition: 'all 0.3s ease',
+                  mb: 1
+                }}>
+                  {index === activeStep ? (
+                    <CircularProgress size={24} sx={{ color: 'white' }} />
+                  ) : index < activeStep ? (
+                    <CheckCircleIcon />
+                  ) : (
+                    step.icon
+                  )}
+                </Box>
+              </motion.div>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: index <= activeStep ? '#1E3A8A' : '#94A3B8',
+                  fontWeight: index === activeStep ? 600 : 400
+                }}
+              >
+                {step.label}
+              </Typography>
+            </Box>
+          ))}
 
-      {/* Current step description */}
-      <Box sx={{
-        textAlign: 'center',
-        p: 3,
-        bgcolor: 'rgba(59, 130, 246, 0.05)',
-        borderRadius: '12px',
-        border: '1px solid rgba(59, 130, 246, 0.1)'
-      }}>
-        <Typography sx={{ color: '#3B82F6', fontWeight: 500, mb: 1 }}>
-          {loadingSteps[activeStep].label}
-        </Typography>
-        <Typography sx={{ color: '#64748B' }}>
-          {loadingSteps[activeStep].description}
-        </Typography>
-      </Box>
-
-      {/* Overall progress */}
-      <Box sx={{ mt: 4 }}>
-        <LinearProgress 
-          variant="determinate" 
-          value={(activeStep + 1) * (100 / loadingSteps.length)}
-          sx={{
-            height: 6,
-            borderRadius: 3,
+          {/* Progress Line */}
+          <Box sx={{
+            position: 'absolute',
+            top: 20,
+            left: 40,
+            right: 40,
+            height: 2,
             bgcolor: 'rgba(203, 213, 225, 0.2)',
-            '& .MuiLinearProgress-bar': {
+            zIndex: 0
+          }}>
+            <Box sx={{
+              width: `${(activeStep / (loadingSteps.length - 1)) * 100}%`,
+              height: '100%',
               bgcolor: '#3B82F6',
-              borderRadius: 3,
-            }
-          }}
-        />
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            color: '#64748B',
-            textAlign: 'center',
-            mt: 2 
-          }}
-        >
-          {Math.round((activeStep + 1) * (100 / loadingSteps.length))}% Complete
-        </Typography>
+              transition: 'width 0.3s ease'
+            }} />
+          </Box>
+        </Box>
+
+        {/* Overall Progress */}
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="h4" sx={{ color: '#1E3A8A', fontWeight: 700 }}>
+            {Math.round((activeStep + 1) * (100 / loadingSteps.length))}%
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748B' }}>
+            Analysis Complete
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
@@ -253,33 +280,41 @@ const AnalyzeResumeStructure = () => {
         background: 'white',
         border: '1px solid rgba(59, 130, 246, 0.1)',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        p: 4,
+        p: { xs: 3, md: 4 },
         mb: 4,
+        maxWidth: '800px',
+        mx: 'auto',
       }}
     >
-      <Grid container spacing={4}>
+      <Grid container spacing={3}>
         {/* Header Section */}
-        <Grid item xs={12} sx={{ textAlign: 'center', mb: 2 }}>
+        <Grid item xs={12} sx={{ textAlign: 'center', mb: 1 }}>
           <Typography 
-            variant="h4" 
+            variant="h5" 
             sx={{ 
               fontWeight: 700,
               background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              mb: 2
+              mb: 1
             }}
           >
             Resume Structure Analysis
           </Typography>
-          <Typography variant="body1" sx={{ color: '#64748B', maxWidth: '600px', margin: '0 auto' }}>
+          <Typography variant="body2" sx={{ color: '#64748B', maxWidth: '500px', margin: '0 auto' }}>
             Get instant feedback on your resume's effectiveness and ATS compatibility
           </Typography>
         </Grid>
 
         {/* Process Steps */}
         <Grid item xs={12}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap', mb: 4 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: { xs: 2, md: 3 }, 
+            flexWrap: 'wrap', 
+            mb: 3
+          }}>
             {[
               {
                 icon: <CloudUploadIcon sx={{ fontSize: 32, color: '#3B82F6' }} />,
@@ -302,7 +337,7 @@ const AnalyzeResumeStructure = () => {
                 sx={{
                   textAlign: 'center',
                   position: 'relative',
-                  width: '180px'
+                  width: { xs: '140px', md: '160px' }
                 }}
               >
                 <Box sx={{
@@ -345,9 +380,9 @@ const AnalyzeResumeStructure = () => {
         {/* Upload Section */}
         <Grid item xs={12} sx={{ textAlign: 'center' }}>
           <Box sx={{ 
-            maxWidth: '400px', 
+            maxWidth: '350px',
             margin: '0 auto',
-            p: 3,
+            p: { xs: 2, md: 3 },
             borderRadius: '16px',
             bgcolor: 'rgba(59, 130, 246, 0.05)',
             border: '1px dashed rgba(59, 130, 246, 0.2)'
@@ -759,86 +794,139 @@ const AnalyzeResumeStructure = () => {
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
         p: 4,
       }}>
-        {/* Visual Metrics Section */}
-        <Grid container spacing={3} mb={4}>
-          {/* ATS Score as a circular progress */}
+        {/* Header with Title and Restart Button */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mb: 4 
+          }}
+        >
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 600,
+              color: '#1E3A8A'
+            }}
+          >
+            Resume Analysis Results
+          </Typography>
+          
+          <Button
+            onClick={handleRestart}
+            startIcon={<RefreshIcon />}
+            variant="outlined"
+            sx={{
+              borderColor: '#3B82F6',
+              color: '#3B82F6',
+              borderRadius: '12px',
+              px: 3,
+              py: 1,
+              '&:hover': {
+                borderColor: '#2563EB',
+                background: 'rgba(59, 130, 246, 0.05)'
+              }
+            }}
+          >
+            New Analysis
+          </Button>
+        </Box>
+
+        {/* Main Score Card and Stats */}
+        <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
             <Paper 
               elevation={0} 
               sx={{ 
-                p: 3, 
-                height: '100%',  // Make it full height
-                textAlign: 'center',
-                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
-                borderRadius: '16px',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)',
+                p: 4,
+                background: 'linear-gradient(135deg, #EBF3FF 0%, #D6E8FF 100%)',
+                borderRadius: '20px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center'
+                alignItems: 'center',
+                gap: 2
               }}
             >
-              <CircularProgress 
-                variant="determinate" 
-                value={analysis?.ATS_Compatibility_Score || 0}
-                size={160}  // Increased size
-                thickness={4}
-                sx={{
-                  color: '#3B82F6',
-                  '& .MuiCircularProgress-circle': {
-                    strokeLinecap: 'round',
-                  }
-                }}
-              />
-              <Typography variant="h5" sx={{ mt: 2, fontWeight: 600 }}>
-                ATS Score
-              </Typography>
-              <Typography variant="h4" sx={{ color: '#3B82F6', fontWeight: 700 }}>
-                {analysis?.ATS_Compatibility_Score}%
-              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Resume Score</Typography>
+              <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <CircularProgress 
+                  variant="determinate" 
+                  value={analysis?.ATS_Compatibility_Score || 0}
+                  size={200}
+                  thickness={4}
+                  sx={{
+                    color: '#3B82F6',
+                    '& .MuiCircularProgress-circle': {
+                      strokeLinecap: 'round',
+                      filter: 'drop-shadow(0px 4px 8px rgba(59, 130, 246, 0.3))'
+                    }
+                  }}
+                />
+                <Typography 
+                  variant="h2" 
+                  sx={{ 
+                    position: 'absolute',
+                    fontWeight: 700,
+                    color: '#1E3A8A'
+                  }}
+                >
+                  {analysis?.ATS_Compatibility_Score}%
+                </Typography>
+              </Box>
             </Paper>
           </Grid>
 
-          {/* Radar Chart for Section Importance */}
+          {/* Quick Stats Cards */}
           <Grid item xs={12} md={6}>
-            <Paper 
-              elevation={0} 
-              sx={{ 
-                p: 3,
-                height: '100%',  // Make it full height
-                background: 'linear-gradient(145deg, #ffffff, #f3f4f6)',
-                borderRadius: '16px',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.05)'
-              }}
-            >
-              <Typography variant="h6" gutterBottom>Section Importance</Typography>
-              <Box height={300}>  // Increased height
-                {radarData && (
-                  <Radar 
-                    data={radarData} 
-                    options={{ 
-                      maintainAspectRatio: false,
-                      scales: {
-                        r: {
-                          beginAtZero: true,
-                          ticks: {
-                            display: false
-                          }
-                        }
-                      },
-                      elements: {
-                        line: {
-                          borderWidth: 3
-                        },
-                        point: {
-                          radius: 4
-                        }
-                      }
-                    }} 
-                  />
-                )}
-              </Box>
-            </Paper>
+            <Grid container spacing={2}>
+              {[
+                { 
+                  label: 'Keywords Match', 
+                  value: `${analysis?.Keywords_Analysis?.Present_Keywords?.length || 0}/${(analysis?.Keywords_Analysis?.Present_Keywords?.length || 0) + (analysis?.Keywords_Analysis?.Missing_Keywords?.length || 0)}`,
+                  icon: <CheckCircleIcon sx={{ color: '#3B82F6' }} />
+                },
+                { 
+                  label: 'Format Score', 
+                  value: `${analysis?.ATS_Friendly_Structure?.Format_Score || 0}/10`,
+                  icon: <DescriptionIcon sx={{ color: '#3B82F6' }} />
+                },
+                { 
+                  label: 'Keyword Density', 
+                  value: analysis?.Keywords_Analysis?.Keyword_Density || '0%',
+                  icon: <AnalyticsIcon sx={{ color: '#3B82F6' }} />
+                },
+                { 
+                  label: 'Sections', 
+                  value: analysis?.ATS_Friendly_Structure?.Section_Order?.length || 0,
+                  icon: <CompareArrowsIcon sx={{ color: '#3B82F6' }} />
+                }
+              ].map((stat, index) => (
+                <Grid item xs={6} key={index}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 3,
+                      height: '100%',
+                      borderRadius: '16px',
+                      border: '1px solid rgba(59, 130, 246, 0.1)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    {stat.icon}
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#1E3A8A' }}>
+                      {stat.value}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>
+                      {stat.label}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
           </Grid>
         </Grid>
 
@@ -860,7 +948,52 @@ const AnalyzeResumeStructure = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Box sx={{ minHeight: '100vh', background: 'linear-gradient(145deg, #f6f8fc 0%, #eef2ff 100%)' }}>
+      <Box sx={{ 
+        minHeight: '100vh', 
+        background: 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {/* Add the floating background elements */}
+        <Box sx={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          opacity: 0.6,
+          zIndex: 0,
+          overflow: 'hidden'
+        }}>
+          {[...Array(5)].map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                y: [0, -20, 0],
+                rotate: [0, 10, 0],
+                scale: [1, 1.05, 1]
+              }}
+              transition={{
+                duration: 8,
+                delay: i * 1.2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              style={{
+                position: 'absolute',
+                width: '300px',
+                height: '300px',
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${
+                  ['#e0e7ff33', '#dbeafe33', '#e0f2fe33', '#f0f9ff33', '#f8fafc33'][i]
+                } 0%, transparent 70%)`,
+                left: `${[10, 60, 20, 70, 40][i]}%`,
+                top: `${[20, 60, 80, 30, 50][i]}%`,
+                transform: 'translate(-50%, -50%)',
+                filter: 'blur(40px)',
+              }}
+            />
+          ))}
+        </Box>
+
         {/* Keep existing AppBar */}
         <AppBar position="static" sx={{ background: 'transparent', boxShadow: 'none' }}>
           <Container maxWidth="xl">
@@ -927,7 +1060,7 @@ const AnalyzeResumeStructure = () => {
         </AppBar>
 
         {/* Main Content */}
-        <Container maxWidth="xl" sx={{ mt: { xs: 4, md: 8 }, position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="lg" sx={{ mt: { xs: 4, md: 6 }, position: 'relative', zIndex: 1 }}>
           <AnimatePresence mode="wait">
             {!analysis ? (
               <motion.div
@@ -946,25 +1079,6 @@ const AnalyzeResumeStructure = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                {/* Restart Button */}
-                <Box sx={{ position: 'absolute', top: 24, right: 24, zIndex: 10 }}>
-                  <Button
-                    onClick={handleRestart}
-                    startIcon={<RefreshIcon />}
-                    variant="outlined"
-                    sx={{
-                      borderColor: '#3B82F6',
-                      color: '#3B82F6',
-                      '&:hover': {
-                        borderColor: '#2563EB',
-                        background: 'rgba(59, 130, 246, 0.05)'
-                      }
-                    }}
-                  >
-                    Analyze New Resume
-                  </Button>
-                </Box>
-                
                 {renderAnalysisResults()}
               </motion.div>
             )}

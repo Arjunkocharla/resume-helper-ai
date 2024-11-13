@@ -131,6 +131,7 @@ def analyze_resume_structure():
         return jsonify({'error': 'Resume file is required.'}), 400
 
     file = request.files['resume']
+    retry = request.form.get('retry', 'false').lower() == 'true'
 
     if file.filename == '' or not allowed_file(file.filename):
         return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
@@ -144,7 +145,11 @@ def analyze_resume_structure():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As a senior resume analyst and ATS expert with extensive experience in multiple industries, conduct a comprehensive analysis of the following resume. Focus on ATS compatibility, keyword optimization, and industry-specific best practices.
+    retry_prefix = """IMPORTANT: Previous response had JSON parsing errors. Please provide ONLY the JSON response in the exact format specified below. No additional text, explanations or casual conversation - just the parseable JSON response.
+
+""" if retry else ""
+
+    prompt = f"""{retry_prefix}As a senior resume analyst and ATS expert with extensive experience in multiple industries, conduct a comprehensive analysis of the following resume. Focus on ATS compatibility, keyword optimization, and industry-specific best practices.
     Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
     1. "ATS_Compatibility_Score": An integer from 1-100 assessing how well the resume would perform in ATS scans. Consider factors such as formatting, use of standard section headings, and keyword relevance.
 
@@ -419,6 +424,7 @@ def suggest_keywords():
 
     file = request.files['resume']
     job_description = request.form['job_description']
+    retry = request.form.get('retry', 'false').lower() == 'true'
 
     if file.filename == '' or not allowed_file(file.filename):
         return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
@@ -429,7 +435,11 @@ def suggest_keywords():
 
     resume_text = extract_text(file_path)
 
-    prompt = f"""As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+    retry_prefix = """IMPORTANT: Previous response had JSON parsing errors. Please provide ONLY the JSON response in the exact format specified below. No additional text, explanations or casual conversation - just the parseable JSON response.
+
+""" if retry else ""
+
+    prompt = f"""{retry_prefix}As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
     Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
 1. First, analyze the resume to understand:
