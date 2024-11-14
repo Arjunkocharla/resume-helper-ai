@@ -138,7 +138,7 @@ const AnalyzeResumeStructure = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(255, 255, 255, 0.9)',
+        background: 'linear-gradient(135deg, #FFFFFF 0%, #EBF3FF 35%, #D6E8FF 65%, #B6DCFE 100%)',  // Updated to match main background
         backdropFilter: 'blur(8px)',
         display: 'flex',
         flexDirection: 'column',
@@ -148,6 +148,45 @@ const AnalyzeResumeStructure = () => {
         p: 3
       }}
     >
+      {/* Add floating background elements */}
+    <Box sx={{
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      opacity: 0.6,
+      zIndex: 0,
+      overflow: 'hidden'
+    }}>
+      {[...Array(5)].map((_, i) => (
+        <motion.div
+          key={i}
+          animate={{
+            y: [0, -20, 0],
+            rotate: [0, 10, 0],
+            scale: [1, 1.05, 1]
+          }}
+          transition={{
+            duration: 8,
+            delay: i * 1.2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          style={{
+            position: 'absolute',
+            width: '300px',
+            height: '300px',
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${
+              ['#e0e7ff33', '#dbeafe33', '#e0f2fe33', '#f0f9ff33', '#f8fafc33'][i]
+            } 0%, transparent 70%)`,
+            left: `${[10, 60, 20, 70, 40][i]}%`,
+            top: `${[20, 60, 80, 30, 50][i]}%`,
+            transform: 'translate(-50%, -50%)',
+            filter: 'blur(40px)',
+          }}
+        />
+      ))}
+    </Box>
       {/* Animated Logo or Icon */}
       <motion.div
         animate={{
