@@ -9,7 +9,7 @@
       "env": {
         "FLASK_APP": "resume_analyzer.py",
         "FLASK_ENV": "development",
-        "GOOGLE_APPLICATION_CREDENTIALS": "${workspaceFolder}/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json"
+        "GOOGLE_APPLICATION_CREDENTIALS": "${workspaceFolder}/resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json"
       },
       "args": [
         "run",
@@ -18,8 +18,7 @@
         "5000"
       ],
       "jinja": true,
-      "python"://"C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_backend/py3.9venv/Scripts/python.exe",
-    "/Users/arjunkocharla/Documents/resume_helper_app/resume_helper_backend/py3.9env/bin/python",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
@@ -39,7 +38,7 @@
         "5001"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/py3.9env/bin/python"
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe"
     },
     {
       "name": "Debug React",

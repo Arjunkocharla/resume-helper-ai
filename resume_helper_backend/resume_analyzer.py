@@ -19,10 +19,19 @@ from reportlab.lib.pagesizes import letter
 from PyPDF2 import PdfReader, PdfWriter
 import openai  # Import OpenAI for GPT
 import logging
+from flask import Flask, request, jsonify, send_file
+import os
+import re
+import json
+from werkzeug.utils import secure_filename
+from docx import Document
+import tempfile
+import anthropic  # Assuming you're using the Anthropic client library
+import PyPDF2  # For PDF text extraction
 
 # Load environment variables
 load_dotenv()
-
+ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app = Flask(__name__)
 CORS(app)
 client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
@@ -74,36 +83,46 @@ def extract_text(file_path):
         raise ValueError('Unsupported file format')
 
 def analyze_keywords_with_claude(resume_text, job_category):
-    prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position, specifically for a Lead ML Engineer role.
+    prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
 
-1. Identify the top 8-9 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
-2. For each keyword:
+First, identify the main sections in the resume. Then, for each suggested improvement, specify which of these EXACT sections it should be placed under.
+
+Resume text for section analysis:
+{resume_text}
+
+Now, identify the top 8-9 most relevant keywords or phrases for this specific {job_category} role, considering current industry trends and job market demands.
+For each keyword:
    a. Provide a brief explanation of its importance in the {job_category} field (1-2 sentences).
    b. Generate 1-2 impactful, ready-to-use bullet points that the candidate could directly add to their resume. These points should:
       - Integrate the identified keyword naturally
-      - Be tailored specifically to the {job_category} position and the candidate's experience level (e.g., if the candidate is an entry-level or junior engineer, focus on foundational skills, relevant coursework, internships, or projects rather than managerial or advanced technical skills)
-      - Highlight quantifiable achievements where possible, even if they are from academic projects or internships
+      - Be tailored specifically to the {job_category} position
+      - Highlight quantifiable achievements where possible
       - Use strong action verbs
-      - Demonstrate the candidate's potential impact and value in previous roles or projects
-
-Resume text:
-{resume_text}
+      - Demonstrate the candidate's potential impact and value
+   c. Specify which EXACT section from the resume the bullet points should be added to.
 
 Provide the output in this JSON format:
 {{
+  "sections": [
+    "EDUCATION",
+    "SKILLS & TOOLS",
+    "COMPUTER SCIENCE PROJECTS",
+    "WORK EXPERIENCE",
+    // ... exact sections as they appear in the resume
+  ],
   "keywords": [
     {{
       "keyword": "string",
       "importance": "string",
       "bullet_points": [
-        "string",
-        "string"
+        {{
+          "point": "string",
+          "section": "EXACT_SECTION_NAME"  // Must match one of the sections listed above
+        }}
       ]
-    }},
-    ...
+    }}
   ]
-}}
-"""
+}}"""
 
     response = client.messages.create(
         model="claude-3-haiku-20240307",
@@ -895,6 +914,358 @@ def apply_changes_to_docx(file_path, changes):
     doc.save(updated_file_path)
     
     return updated_file_path
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def extract_text(file_path):
+    # Implement text extraction for both DOCX and PDF
+    if file_path.endswith('.docx'):
+        doc = Document(file_path)
+        return '\n'.join([para.text for para in doc.paragraphs])
+    elif file_path.endswith('.pdf'):
+        # Implement PDF text extraction
+        with open(file_path, 'rb') as f:
+            reader = PyPDF2.PdfReader(f)
+            text = ''
+            for page in reader.pages:
+                text += page.extract_text() + '\n'
+        return text
+    else:
+        return ''
+
+def identify_sections_with_llm(resume_text):
+    prompt = f"""As an AI language model, please analyze the following resume text and extract only the section headings exactly as they appear in the document. Return only the exact section names without any additional text or explanations.
+
+Resume text:
+{resume_text}
+
+Return only a JSON object in this exact format:
+{{
+    "sections": [
+        "Section Name 1",
+        "Section Name 2",
+        "Section Name 3"
+    ]
+}}
+
+Important Instructions:
+- Extract ONLY the section headings from the resume.
+- Do NOT include any additional text, explanations, or descriptions.
+- Do NOT modify the original section names.
+- Do NOT add words like 'section', 'under the', etc.
+- Do NOT include any text other than the JSON object in the specified format.
+"""
+
+    try:
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=1000,
+            temperature=0.2,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        response_content = response.content[0].text
+        json_start = response_content.find('{')
+        json_end = response_content.rfind('}') + 1
+        sections_data = json.loads(response_content[json_start:json_end])
+        return sections_data['sections']
+    except Exception as e:
+        print(f"Error identifying sections: {e}")
+        return None
+    
+def clean_section_name(section_name: str) -> str:
+    """Remove extra words and normalize section names"""
+    # Remove common phrases
+    phrases_to_remove = [
+        'under the',
+        'in the',
+        'section',
+        'sections',
+        'under',
+        'in',
+        'for',
+        'the'
+    ]
+    
+    cleaned = section_name.lower().strip()
+    for phrase in phrases_to_remove:
+        cleaned = cleaned.replace(phrase, '').strip()
+    
+    return cleaned
+
+def update_resume_docx(doc_path: str, suggestions: dict) -> str:
+    try:
+        # Load the resume
+        doc = Document(doc_path)
+        resume_text = '\n'.join([para.text for para in doc.paragraphs])
+        sections_data = identify_sections_with_llm(resume_text)
+        
+        if not sections_data:
+            raise Exception("Failed to identify sections in resume")
+            
+        # Create a mapping of sections to their positions
+        sections = {}
+        for i, paragraph in enumerate(doc.paragraphs):
+            for section in sections_data:
+                if not isinstance(section, dict):
+                    continue
+                section_id = section.get('identifier', '').lower()
+                if section_id and section_id in paragraph.text.lower():
+                    sections[section.get('name', '').lower()] = {
+                        'index': i,
+                        'type': section.get('type', '')
+                    }
+
+        # Process each suggestion's bullet points
+        keywords = suggestions.get('keywords', [])
+        if not isinstance(keywords, list):
+            raise ValueError("Invalid suggestions format - keywords must be a list")
+            
+        for keyword in keywords:
+            if not isinstance(keyword, dict):
+                continue
+                
+            bullet_points = keyword.get('bullet_points', [])
+            if not isinstance(bullet_points, list):
+                continue
+                
+            for bullet in bullet_points:
+                if not isinstance(bullet, dict):
+                    continue
+                    
+                point_text = bullet.get('point', '')
+                placement = bullet.get('section', '').lower()
+                
+                if not point_text or not placement:
+                    continue
+                    
+                section_info = sections.get(placement)
+                if section_info:
+                    insert_index = section_info['index'] + 1
+                    p = doc.paragraphs[insert_index-1].insert_paragraph_before("• " + point_text)
+                    if insert_index < len(doc.paragraphs):
+                        p.style = doc.paragraphs[insert_index].style
+                else:
+                    print(f"Warning: Section '{placement}' not found in resume")
+
+        # Save the updated document
+        output_dir = os.path.dirname(doc_path)
+        updated_path = os.path.join(output_dir, f"updated_{os.path.basename(doc_path)}")
+        doc.save(updated_path)
+        return updated_path
+
+    except Exception as e:
+        print(f"Error in update_resume_docx: {e}")
+        raise
+
+def update_resume_pdf(pdf_path, suggestions):
+    # For PDFs, consider converting to DOCX, updating, then exporting back to PDF
+    # This is a complex process and may require third-party tools or services
+    # For simplicity, we'll return an error for now
+    return None
+
+@app.route('/update_resume', methods=['POST'])
+def update_resume():
+    if 'resume' not in request.files or 'job_description' not in request.form:
+        return jsonify({'error': 'Resume file and job description are required.'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['job_description']
+    retry = request.form.get('retry', 'false').lower() == 'true'
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
+
+    filename = secure_filename(file.filename)
+    file_ext = filename.rsplit('.', 1)[1].lower()
+
+    # Create a directory for processed files
+    processed_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'processed')
+    os.makedirs(processed_dir, exist_ok=True)
+
+    try:
+        # Save the file in the processed directory
+        file_path = os.path.join(processed_dir, filename)
+        file.save(file_path)
+
+        resume_text = extract_text(file_path)
+
+        retry_prefix = """IMPORTANT: Previous response had JSON parsing errors. Please provide ONLY the JSON response in the exact format specified below. No additional text, explanations or casual conversation - just the parseable JSON response.
+
+""" if retry else ""
+
+        prompt = f"""{retry_prefix}As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
+
+1. First, analyze the resume to understand:
+   - The candidate's current experience level and role
+   - Technical skills, tools, and domain expertise
+   - Industry-specific achievements and certifications
+   - Current role and career trajectory
+   - Existing keyword density and placement
+
+2. Then, analyze the job description to identify:
+   - Must-have technical skills, tools, and technologies
+   - Required certifications and qualifications
+   - Desired experience levels and competencies
+   - Industry-specific terminology and frameworks
+   - Key responsibilities and deliverables
+   - Recurring keywords and their variations
+   - Technology stack requirements
+   - Domain-specific methodologies
+
+3. Based on this analysis, provide:
+   - High-impact keywords missing from the resume but crucial for ATS scoring
+   - Existing keywords that need stronger emphasis or modern context
+   - Industry-specific technical terms that would strengthen the application
+   - Role-specific tools and technologies mentioned in the job description
+   - Methodologies and frameworks valued in the industry
+   - Measurable metrics and achievements using these keywords
+
+For each keyword suggestion:
+- Explain why it's specifically important for this role and industry
+- Detail how it impacts ATS scoring and ranking
+- Provide 2-3 ready-to-use bullet points that:
+  * Incorporate the keyword naturally and with proper context
+  * Include specific metrics and quantifiable achievements
+  * Use strong action verbs aligned with seniority level
+  * Are tailored to the candidate's experience level
+  * Follow ATS-friendly formatting and keyword placement
+  * Are industry-specific and technically accurate
+  * Include relevant tools and methodologies
+  * Demonstrate impact and results
+
+Resume Text:
+{resume_text}
+
+Job Description:
+{job_description}
+
+Provide your response in the following JSON format:
+{{
+  "experience_gap_analysis": "A detailed analysis of the gap between current resume and job requirements",
+  "keywords": [
+    {{
+      "keyword": "Specific technical or professional term",
+      "importance": "Detailed explanation of why this keyword is crucial for this specific role and its impact on ATS scoring",
+      "bullet_points": [
+        {{
+          "point": "Complete, ready-to-use bullet point with metrics and context",
+          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
+        }}
+      ],
+      "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
+    }}
+  ],
+  "overall_strategy": "Comprehensive strategy for implementing these changes effectively and optimizing ATS scoring"
+}}
+"""
+
+        try:
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=2000,
+                temperature=0.3,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            response_content = response.content[0].text
+            json_start = response_content.find('{')
+            json_end = response_content.rfind('}') + 1
+            json_str = response_content[json_start:json_end]
+            json_str = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', json_str)
+
+            try:
+                suggestions = json.loads(json_str)
+            except json.JSONDecodeError as json_error:
+                return jsonify({
+                    'error': f'Failed to parse JSON: {str(json_error)}',
+                    'json_str': json_str,
+                    'error_position': json_error.pos,
+                    'error_lineno': json_error.lineno,
+                    'error_colno': json_error.colno
+                }), 500
+
+            # Update the resume
+            if file_ext == 'docx':
+                updated_resume_path = update_resume_docx(file_path, suggestions)
+            elif file_ext == 'pdf':
+                updated_resume_path = update_resume_pdf(file_path, suggestions)
+                if not updated_resume_path:
+                    return jsonify({'error': 'PDF resume updating is not supported at this time.'}), 500
+            else:
+                return jsonify({'error': 'Unsupported file format.'}), 400
+
+            if not os.path.exists(updated_resume_path):
+                return jsonify({'error': 'Updated resume file not found.'}), 500
+
+            try:
+                # Create a downloads directory in the current working directory
+                downloads_dir = os.path.join(os.getcwd(), 'downloads')
+                os.makedirs(downloads_dir, exist_ok=True)
+
+                # Save the file in the downloads directory with a timestamp
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                download_filename = f"updated_{timestamp}_{filename}"
+                download_path = os.path.join(downloads_dir, download_filename)
+
+                try:
+                    # Instead of sending the file directly, copy it to downloads directory
+                    import shutil
+                    shutil.copy2(updated_resume_path, download_path)
+
+                    # Send both the file and the saved location
+                    response = send_file(
+                        updated_resume_path,
+                        as_attachment=True,
+                        download_name=download_filename,
+                        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document' if file_ext == 'docx' else 'application/pdf'
+                    )
+
+                    # Add the saved path to response headers
+                    response.headers['X-Saved-Location'] = download_path
+
+                    @response.call_on_close
+                    def cleanup():
+                        try:
+                            # Only remove the temporary files, keep the downloaded copy
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                            if os.path.exists(updated_resume_path):
+                                os.remove(updated_resume_path)
+                        except Exception as e:
+                            print(f"Cleanup error: {e}")
+
+                    return response
+
+                except Exception as e:
+                    return jsonify({
+                        'error': f'Error sending file: {str(e)}',
+                        'saved_location': download_path if os.path.exists(download_path) else None
+                    }), 500
+
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        # Modified cleanup to preserve the downloaded copy
+        try:
+            if 'file_path' in locals() and os.path.exists(file_path):
+                os.remove(file_path)
+            # Don't remove updated_resume_path as it's been copied to downloads
+        except Exception as e:
+            print(f"Final cleanup error: {e}")
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
