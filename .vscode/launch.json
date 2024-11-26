@@ -18,7 +18,7 @@
         "5000"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/resume_helper_backend/venv/bin/python",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
@@ -38,7 +38,7 @@
         "5001"
       ],
       "jinja": true,
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe"
+      "python": "${workspaceFolder}/resume_helper_backend/.venv/bin/python"
     },
     {
       "name": "Debug React",

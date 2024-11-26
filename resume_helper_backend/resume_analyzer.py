@@ -1002,60 +1002,71 @@ def update_resume_docx(doc_path: str, suggestions: dict) -> str:
         # Load the resume
         doc = Document(doc_path)
         resume_text = '\n'.join([para.text for para in doc.paragraphs])
-        sections_data = identify_sections_with_llm(resume_text)
         
-        if not sections_data:
-            raise Exception("Failed to identify sections in resume")
-            
+        # Define common section headers and their variations
+        section_mappings = {
+            'work experience': ['work experience', 'experience', 'employment', 'work history'],
+            'projects': ['projects', 'project experience', 'technical projects'],
+            'internships': ['internships', 'internship experience'],
+            'education': ['education', 'academic background'],
+            'skills': ['skills', 'technical skills', 'skills & tools'],
+            'profile': ['profile', 'summary', 'professional summary']
+        }
+        
         # Create a mapping of sections to their positions
         sections = {}
         for i, paragraph in enumerate(doc.paragraphs):
-            for section in sections_data:
-                if not isinstance(section, dict):
-                    continue
-                section_id = section.get('identifier', '').lower()
-                if section_id and section_id in paragraph.text.lower():
-                    sections[section.get('name', '').lower()] = {
+            para_text = paragraph.text.lower().strip()
+            # Check for section headers
+            for section_key, variations in section_mappings.items():
+                if any(var in para_text for var in variations):
+                    sections[section_key] = {
                         'index': i,
-                        'type': section.get('type', '')
+                        'text': paragraph.text
                     }
+                    print(f"Found section: {section_key} at index {i}")
+        
+        print("\n=== IDENTIFIED SECTIONS ===")
+        print(json.dumps(sections, indent=2))
 
         # Process each suggestion's bullet points
-        keywords = suggestions.get('keywords', [])
-        if not isinstance(keywords, list):
-            raise ValueError("Invalid suggestions format - keywords must be a list")
-            
-        for keyword in keywords:
-            if not isinstance(keyword, dict):
-                continue
-                
+        for keyword in suggestions.get('keywords', []):
+            placement = keyword.get('placement', '').lower()
             bullet_points = keyword.get('bullet_points', [])
-            if not isinstance(bullet_points, list):
+            
+            # Extract the main section from the placement string
+            main_section = None
+            for section_key in section_mappings.keys():
+                if section_key in placement:
+                    main_section = section_key
+                    break
+            
+            if not main_section or main_section not in sections:
+                print(f"Warning: Could not find section for placement '{placement}'")
                 continue
                 
+            print(f"\nAdding bullet points for keyword '{keyword.get('keyword')}' in section '{main_section}'")
+            
+            # Insert bullet points after the section header
+            insert_index = sections[main_section]['index'] + 1
             for bullet in bullet_points:
-                if not isinstance(bullet, dict):
-                    continue
-                    
                 point_text = bullet.get('point', '')
-                placement = bullet.get('section', '').lower()
-                
-                if not point_text or not placement:
-                    continue
-                    
-                section_info = sections.get(placement)
-                if section_info:
-                    insert_index = section_info['index'] + 1
-                    p = doc.paragraphs[insert_index-1].insert_paragraph_before("• " + point_text)
+                if point_text:
+                    print(f"Adding bullet point: {point_text}")
+                    p = doc.paragraphs[insert_index].insert_paragraph_before("• " + point_text)
                     if insert_index < len(doc.paragraphs):
                         p.style = doc.paragraphs[insert_index].style
-                else:
-                    print(f"Warning: Section '{placement}' not found in resume")
 
         # Save the updated document
         output_dir = os.path.dirname(doc_path)
         updated_path = os.path.join(output_dir, f"updated_{os.path.basename(doc_path)}")
         doc.save(updated_path)
+        
+        print("\n=== UPDATED RESUME TEXT ===")
+        updated_doc = Document(updated_path)
+        updated_text = '\n'.join([para.text for para in updated_doc.paragraphs])
+        print(updated_text)
+        
         return updated_path
 
     except Exception as e:
