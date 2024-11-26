@@ -515,7 +515,8 @@ Provide your response in the following JSON format:
       "bullet_points": [
         {{
           "point": "Complete, ready-to-use bullet point with metrics and context",
-          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
+          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization",
+          "under_experience": "Specific company/role under which this bullet point should be added (e.g., 'Software Engineer at Google', 'Full Stack Developer at Microsoft')"
         }}
       ],
       "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
@@ -999,11 +1000,10 @@ def clean_section_name(section_name: str) -> str:
 
 def update_resume_docx(doc_path: str, suggestions: dict) -> str:
     try:
-        # Load the resume
         doc = Document(doc_path)
         resume_text = '\n'.join([para.text for para in doc.paragraphs])
         
-        # Define common section headers and their variations
+        # Keep existing section mappings and print statements
         section_mappings = {
             'work experience': ['work experience', 'experience', 'employment', 'work history'],
             'projects': ['projects', 'project experience', 'technical projects'],
@@ -1013,60 +1013,78 @@ def update_resume_docx(doc_path: str, suggestions: dict) -> str:
             'profile': ['profile', 'summary', 'professional summary']
         }
         
-        # Create a mapping of sections to their positions
+        # Keep existing sections mapping code and print statements
         sections = {}
         for i, paragraph in enumerate(doc.paragraphs):
             para_text = paragraph.text.lower().strip()
-            # Check for section headers
             for section_key, variations in section_mappings.items():
                 if any(var in para_text for var in variations):
                     sections[section_key] = {
                         'index': i,
-                        'text': paragraph.text
+                        'text': paragraph.text,
+                        'roles': {}  # Add roles dictionary to store role information
                     }
                     print(f"Found section: {section_key} at index {i}")
-        
+
         print("\n=== IDENTIFIED SECTIONS ===")
         print(json.dumps(sections, indent=2))
 
-        # Process each suggestion's bullet points
-        for keyword in suggestions.get('keywords', []):
-            placement = keyword.get('placement', '').lower()
-            bullet_points = keyword.get('bullet_points', [])
+        # Add role identification within work experience section
+        current_section = None
+        for i, paragraph in enumerate(doc.paragraphs):
+            text = paragraph.text.strip()
             
-            # Extract the main section from the placement string
-            main_section = None
-            for section_key in section_mappings.keys():
-                if section_key in placement:
-                    main_section = section_key
-                    break
+            # Identify current section
+            if text and text.isupper():
+                current_section = text
+                print(f"Current section: {current_section}")
             
-            if not main_section or main_section not in sections:
-                print(f"Warning: Could not find section for placement '{placement}'")
-                continue
-                
-            print(f"\nAdding bullet points for keyword '{keyword.get('keyword')}' in section '{main_section}'")
-            
-            # Insert bullet points after the section header
-            insert_index = sections[main_section]['index'] + 1
-            for bullet in bullet_points:
-                point_text = bullet.get('point', '')
-                if point_text:
-                    print(f"Adding bullet point: {point_text}")
-                    p = doc.paragraphs[insert_index].insert_paragraph_before("• " + point_text)
-                    if insert_index < len(doc.paragraphs):
-                        p.style = doc.paragraphs[insert_index].style
+            # Within work experience, identify roles by looking for lines with dates
+            if current_section == "WORK EXPERIENCE" and ":" in text and not text.startswith('•'):
+                role_name = text.split(":")[0].strip()
+                print(f"Found role: {role_name} at index {i}")
+                if 'work experience' in sections:
+                    sections['work experience']['roles'][role_name] = {
+                        'index': i,
+                        'text': text
+                    }
 
-        # Save the updated document
+        # Modify bullet point processing to use under_experience
+        for keyword in suggestions.get('keywords', []):
+            for bullet in keyword.get('bullet_points', []):
+                if isinstance(bullet, dict) and 'point' in bullet and 'under_experience' in bullet:
+                    target_role = bullet['under_experience']
+                    print(f"\nProcessing bullet point for role: {target_role}")
+                    print(f"Bullet point: {bullet['point']}")
+                    
+                    # Try to find matching role
+                    role_found = False
+                    if 'work experience' in sections:
+                        for role_name, role_info in sections['work experience']['roles'].items():
+                            if any(part.lower() in role_name.lower() for part in target_role.lower().split()):
+                                print(f"Found matching role: {role_name}")
+                                insert_index = role_info['index'] + 1
+                                
+                                # Move past existing bullets
+                                while (insert_index < len(doc.paragraphs) and 
+                                       doc.paragraphs[insert_index].text.strip().startswith('•')):
+                                    insert_index += 1
+                                    print(f"Skipping existing bullet at index {insert_index}")
+                                
+                                print(f"Adding bullet point at index {insert_index}")
+                                p = doc.paragraphs[insert_index-1].insert_paragraph_before("• " + bullet['point'])
+                                if insert_index < len(doc.paragraphs):
+                                    p.style = doc.paragraphs[insert_index].style
+                                role_found = True
+                                break
+                    
+                    if not role_found:
+                        print(f"Warning: Could not find matching role for '{target_role}'")
+
+        # Keep existing save and return code
         output_dir = os.path.dirname(doc_path)
         updated_path = os.path.join(output_dir, f"updated_{os.path.basename(doc_path)}")
         doc.save(updated_path)
-        
-        print("\n=== UPDATED RESUME TEXT ===")
-        updated_doc = Document(updated_path)
-        updated_text = '\n'.join([para.text for para in updated_doc.paragraphs])
-        print(updated_text)
-        
         return updated_path
 
     except Exception as e:
@@ -1166,7 +1184,8 @@ Provide your response in the following JSON format:
       "bullet_points": [
         {{
           "point": "Complete, ready-to-use bullet point with metrics and context",
-          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization"
+          "explanation": "Why this bullet point is effective and how it strengthens the resume for ATS optimization",
+          "under_experience": "Specific company/role under which this bullet point should be added (e.g., 'Software Engineer at Google', 'Full Stack Developer at Microsoft')"
         }}
       ],
       "placement": "Specific section where this keyword/bullet point should be added for maximum ATS impact"
