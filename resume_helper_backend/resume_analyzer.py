@@ -28,6 +28,25 @@ from docx import Document
 import tempfile
 import anthropic  # Assuming you're using the Anthropic client library
 import PyPDF2  # For PDF text extraction
+from typing import Dict, Optional, Union
+from docx import Document
+import json
+import os
+from werkzeug.utils import secure_filename
+import logging
+from anthropic import Anthropic
+from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+import difflib
+from copy import deepcopy
+from docx.shared import Pt, Inches
+from docx import Document
+import logging
+import os
+import time
+from werkzeug.utils import secure_filename
+from flask import jsonify, send_file
+from typing import Dict, Optional, Tuple
 
 # Load environment variables
 load_dotenv()
@@ -415,8 +434,7 @@ def analyze_resume_length():
                 model="claude-3-haiku-20240307",
                 max_tokens=1000,
                 temperature=0.3,
-                messages=[
-                    {"role": "user", "content": prompt}
+                messages=[{"role": "user", "content": prompt}
                 ]
             )
 
@@ -1097,7 +1115,7 @@ def update_resume_pdf(pdf_path, suggestions):
     # For simplicity, we'll return an error for now
     return None
 
-@app.route('/update_resume', methods=['POST'])
+@app.route('/update_resumes', methods=['POST'])
 def update_resume():
     if 'resume' not in request.files or 'job_description' not in request.form:
         return jsonify({'error': 'Resume file and job description are required.'}), 400
@@ -1296,6 +1314,784 @@ Provide your response in the following JSON format:
             # Don't remove updated_resume_path as it's been copied to downloads
         except Exception as e:
             print(f"Final cleanup error: {e}")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class ResumeUpdateResult:
+    def __init__(self, 
+                 success: bool, 
+                 file_path: Optional[str] = None, 
+                 error: Optional[str] = None,
+                 changes_made: Optional[Dict] = None):
+        self.success = success
+        self.file_path = file_path
+        self.error = error
+        self.changes_made = changes_made or {}
+
+class ResumeUpdater:
+    def __init__(self, client: Anthropic):
+        self.client = client
+        
+    def _extract_text(self, file_path: str) -> str:
+        """Extract text from DOCX file while preserving formatting"""
+        doc = Document(file_path)
+        text = []
+        for para in doc.paragraphs:
+            text.append(para.text)
+        return '\n'.join(text)
+
+    def _create_update_prompt(self, resume_text: str, suggestions: Dict) -> str:
+        """Create a detailed prompt for the LLM"""
+        return f"""As an expert resume editor, you will update this resume by applying the suggested changes.
+
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY the complete updated resume text.
+2. Preserve the exact formatting, including:
+   - Section headers in UPPERCASE
+   - Bullet points using '•'
+   - Original spacing and line breaks
+3. Add new bullet points under the EXACT role/company specified
+4. Maintain consistent formatting with existing bullet points
+5. Do not modify or remove existing content unless explicitly instructed
+6. Ensure all new bullet points start with '•'
+
+Original Resume:
+{resume_text}
+
+Suggested Updates:
+{json.dumps(suggestions, indent=2)}
+
+Return only the complete updated resume text, preserving all formatting and structure."""
+
+    def _validate_updates(self, original_text: str, updated_text: str) -> Dict:
+        """Validate that updates were applied correctly"""
+        changes = {
+            'added_lines': [],
+            'removed_lines': [],
+            'modified_lines': []
+        }
+        
+        # Use difflib to find differences
+        diff = difflib.unified_diff(
+            original_text.splitlines(),
+            updated_text.splitlines(),
+            lineterm=''
+        )
+        
+        for line in diff:
+            if line.startswith('+•'):
+                changes['added_lines'].append(line[1:])
+            elif line.startswith('-•'):
+                changes['removed_lines'].append(line[1:])
+            elif line.startswith('+') or line.startswith('-'):
+                changes['modified_lines'].append(line[1:])
+                
+        return changes
+
+    def _format_document(self, doc: Document) -> None:
+        """Apply consistent formatting to the document"""
+        for para in doc.paragraphs:
+            if para.text.strip().isupper() and len(para.text.split()) <= 4:
+                # Section headers
+                run = para.runs[0] if para.runs else para.add_run()
+                run.font.bold = True
+                run.font.size = Pt(12)
+            elif para.text.strip().startswith('•'):
+                # Bullet points
+                run = para.runs[0] if para.runs else para.add_run()
+                run.font.size = Pt(11)
+
+    def update_resume(self, file_path: str, suggestions: Dict) -> ResumeUpdateResult:
+        """Update resume using LLM and return the result"""
+        try:
+            # Extract original text
+            original_text = self._extract_text(file_path)
+            
+            # Create prompt and get LLM response
+            prompt = self._create_update_prompt(original_text, suggestions)
+            
+            response = self.client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=2000,
+                temperature=0.2,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            updated_text = response.content[0].text.strip()
+            
+            # Validate updates
+            changes = self._validate_updates(original_text, updated_text)
+            
+            if not changes['added_lines'] and not changes['modified_lines']:
+                return ResumeUpdateResult(
+                    success=False,
+                    error="No changes were applied to the resume"
+                )
+            
+            # Create new document with updates
+            output_path = os.path.join(
+                os.path.dirname(file_path),
+                f"updated_{os.path.basename(file_path)}"
+            )
+            
+            new_doc = Document()
+            for line in updated_text.split('\n'):
+                new_doc.add_paragraph(line)
+            
+            # Apply consistent formatting
+            self._format_document(new_doc)
+            
+            # Save updated document
+            new_doc.save(output_path)
+            
+            return ResumeUpdateResult(
+                success=True,
+                file_path=output_path,
+                changes_made=changes
+            )
+            
+        except Exception as e:
+            logger.error(f"Error updating resume: {str(e)}")
+            return ResumeUpdateResult(
+                success=False,
+                error=str(e)
+            )
+        
+@app.route('/update_resume_enhanced', methods=['POST'])
+def update_resume_enhanced():
+    if 'resume' not in request.files or 'job_description' not in request.form:
+        return jsonify({'error': 'Resume file and job description are required.'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['job_description']
+
+    try:
+        suggestions = json.loads(request.form['suggestions'])
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid suggestions format'}), 400
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only DOCX files are supported.'}), 400
+
+    try:
+        # Save the uploaded file
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        # Initialize resume updater with Anthropic client
+        updater = ResumeUpdater(client)
+        
+        # Update the resume
+        result = updater.update_resume(file_path, suggestions)
+        
+        if not result.success:
+            return jsonify({
+                'error': result.error or 'Failed to update resume'
+            }), 500
+
+        # Create a downloads directory in the current working directory
+        downloads_dir = os.path.join(os.getcwd(), 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
+
+        # Save the file in the downloads directory with a timestamp
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        download_filename = f"updated_{timestamp}_{filename}"
+        download_path = os.path.join(downloads_dir, download_filename)
+
+        # Copy the updated file to the downloads directory
+        import shutil
+        shutil.copy2(result.file_path, download_path)
+
+        # Send the updated file
+        response = send_file(
+            result.file_path,
+            as_attachment=True,
+            download_name=f"updated_{filename}",
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+        # Add changes to response headers
+        response.headers['X-Changes-Made'] = json.dumps(result.changes_made)
+        response.headers['X-Saved-Location'] = download_path
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error in update_resume_enhanced: {e}")
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        # Cleanup temporary files
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            if 'result' in locals() and result.file_path and os.path.exists(result.file_path):
+                os.remove(result.file_path)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+
+@app.route('/update_resume_with_suggestions', methods=['POST'])
+def update_resume_with_suggestions():
+    # Validate input files
+    if 'resume' not in request.files or 'description' not in request.form:
+        return jsonify({'error': 'Resume file and job description are required.'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['description']
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
+
+    try:
+        # Save the uploaded file
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        # Extract text from resume
+        resume_text = extract_text(file_path)
+
+        # Single prompt to analyze and update resume
+        prompt = f"""As an expert ATS optimization specialist and resume editor, analyze this job description and update the resume to improve ATS scoring while maintaining exact formatting.
+
+Job Description:
+{job_description}
+
+Resume:
+{resume_text}
+
+Instructions:
+1. Analyze the job description for key skills, qualifications, and terminology
+2. Update the resume by adding relevant bullet points and skills
+3. Preserve ALL existing content - do not remove anything
+4. Maintain exact formatting including:
+   - All bullet points using '•' symbol
+   - All section headers in UPPERCASE
+   - All spacing and line breaks
+   - Contact information format
+   - Date formats
+   - Company/role formats
+
+Return only the complete updated resume text with all formatting preserved."""
+
+        # Get updated resume from Claude
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        updated_resume_text = response.content[0].text.strip()
+
+        # Create downloads directory
+        downloads_dir = os.path.join(os.getcwd(), 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
+
+        # Save with timestamp
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        download_filename = f"updated_{timestamp}_{filename}"
+        download_path = os.path.join(downloads_dir, download_filename)
+
+        # Create new document and save updated text
+        new_doc = Document()
+        for line in updated_resume_text.split('\n'):
+            new_doc.add_paragraph(line)
+        new_doc.save(download_path)
+
+        # Send response
+        return send_file(
+            download_path,
+            as_attachment=True,
+            download_name=download_filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+
+    except Exception as e:
+        logger.error(f"Error in update_resume_with_suggestions: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        # Cleanup temporary files
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+
+class InPlaceResumeUpdater:
+    def __init__(self, original_doc_path: str):
+        self.doc = Document(original_doc_path)
+        self.sections = self._map_sections()
+        
+    def _map_sections(self) -> Dict[str, Tuple[int, int]]:
+        """Maps section names to their start and end indices in the document"""
+        sections = {}
+        current_section = None
+        section_start = 0
+        
+        for i, para in enumerate(self.doc.paragraphs):
+            text = para.text.strip()
+            if text.isupper() and len(text.split()) <= 4:
+                # End previous section
+                if current_section:
+                    sections[current_section] = (section_start, i - 1)
+                # Start new section
+                current_section = text
+                section_start = i
+                
+        # Add final section
+        if current_section:
+            sections[current_section] = (section_start, len(self.doc.paragraphs) - 1)
+            
+        return sections
+    
+    def update_resume(self, updated_content: str, output_path: str) -> None:
+        """Updates resume content while preserving formatting"""
+        # Parse updated content into sections
+        updated_sections = {}
+        current_section = None
+        current_content = []
+        
+        for line in updated_content.split('\n'):
+            line = line.strip()
+            if line.isupper() and len(line.split()) <= 4:
+                # Save previous section
+                if current_section:
+                    updated_sections[current_section] = current_content
+                # Start new section
+                current_section = line
+                current_content = []
+            elif line:
+                current_content.append(line)
+                
+        # Save final section
+        if current_section:
+            updated_sections[current_section] = current_content
+            
+        # Create new document based on original
+        new_doc = Document()
+        for style in self.doc.styles:
+            if style.name not in new_doc.styles:
+                new_doc.styles.add_style(style.name, style.type, True)
+        
+        # Update each section
+        for section_name, (start_idx, end_idx) in self.sections.items():
+            if section_name in updated_sections:
+                # Get formatting templates from existing paragraphs
+                templates = {
+                    'bullet': None,
+                    'normal': None
+                }
+                
+                # Remove existing content after section header
+                for i in range(start_idx + 1, end_idx + 1):
+                    para = self.doc.paragraphs[i]
+                    if para.text.strip().startswith('•') and not templates['bullet']:
+                        templates['bullet'] = para
+                    elif not para.text.strip().startswith('•') and not templates['normal']:
+                        templates['normal'] = para
+                    if templates['bullet'] and templates['normal']:
+                        break
+                
+                # Add updated content with preserved formatting
+                for line in updated_sections[section_name]:
+                    template = templates['bullet'] if line.startswith('•') else templates['normal']
+                    if template:
+                        new_para = new_doc.add_paragraph()
+                        new_para._p.append(deepcopy(template._p))
+                        new_para.text = line
+                    else:
+                        # Fallback if no template found
+                        new_para = new_doc.add_paragraph(line)
+                        
+                    # Ensure bullet point formatting
+                    if line.startswith('•'):
+                        new_para.paragraph_format.left_indent = Inches(0.25)
+                        new_para.paragraph_format.first_line_indent = Inches(-0.25)
+            else:
+                # If section not in updated content, copy original content
+                for i in range(start_idx + 1, end_idx + 1):
+                    para = self.doc.paragraphs[i]
+                    new_para = new_doc.add_paragraph()
+                    new_para._p.append(deepcopy(para._p))
+        
+        # Save the updated document
+        new_doc.save(output_path)
+
+@app.route('/inplace_resume_update', methods=['POST'])
+def inplace_resume_update():
+    """Endpoint for updating resume while preserving formatting"""
+    if 'resume' not in request.files or 'description' not in request.form:
+        return jsonify({'error': 'Resume file and job description are required.'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['description']
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only DOCX files are allowed.'}), 400
+
+    try:
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        # Extract text while preserving structure
+        doc = Document(file_path)
+        resume_text = '\n'.join([para.text for para in doc.paragraphs])
+
+        # Get updated content from Claude
+        prompt = f"""As an expert ATS optimization specialist and resume editor, analyze this job description and update the resume to improve ATS scoring while maintaining exact formatting.
+
+Job Description:
+{job_description}
+
+Resume:
+{resume_text}
+
+Instructions:
+1. Analyze the job description for key skills, qualifications, and terminology
+2. Update the resume by adding relevant bullet points and skills
+3. Preserve ALL existing content - do not remove anything
+4. Maintain exact formatting including:
+   - All bullet points using '•' symbol
+   - All section headers in UPPERCASE
+   - All spacing and line breaks
+   - Contact information format
+   - Date formats
+   - Company/role formats
+
+Return only the complete updated resume text with all formatting preserved."""
+
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        updated_content = response.content[0].text.strip()
+
+        # Create downloads directory
+        downloads_dir = os.path.join(os.getcwd(), 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
+
+        # Save with timestamp
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        download_filename = f"updated_{timestamp}_{filename}"
+        download_path = os.path.join(downloads_dir, download_filename)
+
+        # Update resume in-place
+        updater = InPlaceResumeUpdater(file_path)
+        updater.update_resume(updated_content, download_path)
+
+        return send_file(
+            download_path,
+            as_attachment=True,
+            download_name=download_filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+
+    except Exception as e:
+        logger.error(f"Error in inplace_resume_update: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        # Cleanup temporary files
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+
+import logging
+import os
+import time
+import json
+from typing import Dict, List, Optional, Tuple
+from docx import Document
+from docx.shared import Pt, Inches
+from werkzeug.utils import secure_filename
+from flask import jsonify, send_file
+from copy import deepcopy
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+class ResumeSection:
+    def __init__(self, name: str, start_idx: int):
+        self.name = name
+        self.start_idx = start_idx
+        self.end_idx: Optional[int] = None
+        self.roles: Dict[str, Tuple[int, int]] = {}
+
+class StructuredResumeUpdater:
+    def __init__(self, file_path: str):
+        try:
+            self.doc = Document(file_path)
+            self.sections = self._map_document_structure()
+            logger.info(f"Loaded document with sections: {[s.name for s in self.sections.values()]}")
+        except Exception as e:
+            logger.error(f"Failed to initialize document: {str(e)}")
+            raise
+
+    def _map_document_structure(self) -> Dict[str, ResumeSection]:
+        """Maps the document structure including sections and roles"""
+        sections = {}
+        current_section = None
+        current_role = None
+        role_start_idx = None
+
+        try:
+            for i, para in enumerate(self.doc.paragraphs):
+                text = para.text.strip()
+                
+                # Skip empty paragraphs
+                if not text:
+                    continue
+
+                # Identify section headers
+                if text.isupper() and len(text.split()) <= 4:
+                    logger.debug(f"Found section header: {text} at index {i}")
+                    
+                    # Close previous section
+                    if current_section:
+                        current_section.end_idx = i - 1
+                    
+                    # Start new section
+                    current_section = ResumeSection(text, i)
+                    sections[text] = current_section
+                    current_role = None
+                
+                # Identify roles in work experience
+                elif current_section and current_section.name == "WORK EXPERIENCE":
+                    # Look for role patterns (e.g., "Company Name: Role" or date patterns)
+                    if ":" in text and not text.startswith('•'):
+                        if current_role:
+                            # Close previous role
+                            current_section.roles[current_role] = (role_start_idx, i - 1)
+                        
+                        current_role = text.split(":")[0].strip()
+                        role_start_idx = i
+                        logger.debug(f"Found role: {current_role} at index {i}")
+
+            # Close final section and role
+            if current_section:
+                current_section.end_idx = len(self.doc.paragraphs) - 1
+                if current_role:
+                    current_section.roles[current_role] = (role_start_idx, len(self.doc.paragraphs) - 1)
+
+            return sections
+
+        except Exception as e:
+            logger.error(f"Error mapping document structure: {str(e)}")
+            raise
+
+    def _copy_paragraph_formatting(self, source_para, new_para):
+        """Copies formatting from source paragraph to new paragraph"""
+        try:
+            # Copy paragraph format
+            if source_para._element.pPr is not None:
+                new_para._element.get_or_add_pPr().append(
+                    deepcopy(source_para._element.pPr)
+                )
+            
+            # Copy run format
+            if source_para.runs:
+                new_run = new_para.runs[0] if new_para.runs else new_para.add_run()
+                source_run = source_para.runs[0]
+                new_run.font.name = source_run.font.name
+                new_run.font.size = source_run.font.size
+                new_run.font.bold = source_run.font.bold
+                new_run.font.italic = source_run.font.italic
+        
+        except Exception as e:
+            logger.warning(f"Error copying paragraph formatting: {str(e)}")
+
+    def update_resume(self, suggestions: Dict[str, List[Dict]], output_path: str) -> None:
+        """Updates the resume with the provided suggestions"""
+        try:
+            new_doc = Document()
+            
+            # Copy all styles from original document
+            for style in self.doc.styles:
+                if style.name not in new_doc.styles:
+                    new_doc.styles.add_style(style.name, style.type, True)
+
+            current_para_idx = 0
+            
+            # Process each paragraph
+            while current_para_idx < len(self.doc.paragraphs):
+                para = self.doc.paragraphs[current_para_idx]
+                text = para.text.strip()
+                
+                # Copy current paragraph
+                new_para = new_doc.add_paragraph()
+                new_para._p.append(deepcopy(para._p))
+                
+                # Check if this is a section header
+                if text.isupper() and len(text.split()) <= 4:
+                    section = self.sections.get(text)
+                    if section and text in suggestions:
+                        # Process suggestions for this section
+                        for suggestion in suggestions[text]:
+                            role = suggestion.get('role')
+                            content = suggestion.get('suggestion')
+                            
+                            if role:
+                                # Find the role and add suggestion after it
+                                for role_name, (start, end) in section.roles.items():
+                                    if role.lower() in role_name.lower():
+                                        # Skip to role position
+                                        while current_para_idx < start:
+                                            current_para_idx += 1
+                                            new_para = new_doc.add_paragraph()
+                                            new_para._p.append(
+                                                deepcopy(self.doc.paragraphs[current_para_idx]._p)
+                                            )
+                                        
+                                        # Add suggestion
+                                        suggestion_para = new_doc.add_paragraph(content)
+                                        self._copy_paragraph_formatting(
+                                            self.doc.paragraphs[start + 1],
+                                            suggestion_para
+                                        )
+                            else:
+                                # Add suggestion at the end of the section
+                                suggestion_para = new_doc.add_paragraph(content)
+                                self._copy_paragraph_formatting(para, suggestion_para)
+                
+                current_para_idx += 1
+            
+            # Save the updated document
+            new_doc.save(output_path)
+            logger.info(f"Successfully saved updated document to: {output_path}")
+            
+        except Exception as e:
+            logger.error(f"Error updating resume: {str(e)}")
+            raise
+
+@app.route('/structured_resume_update', methods=['POST'])
+def structured_resume_update():
+    if 'resume' not in request.files or 'description' not in request.form:
+        return jsonify({'error': 'Resume file and job description are required.'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['description']
+
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file. Only DOCX files are allowed.'}), 400
+
+    try:
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        # Extract text while preserving structure
+        doc = Document(file_path)
+        resume_text = '\n'.join([para.text for para in doc.paragraphs])
+
+        prompt = f"""As an expert ATS optimization specialist and resume editor, analyze this job description and update the resume to improve ATS scoring while maintaining exact formatting.
+
+Job Description:
+{job_description}
+
+Resume:
+{resume_text}
+
+Instructions:
+1. Analyze the job description for key skills, qualifications, and terminology.
+2. Provide suggestions for each relevant section of the resume.
+3. For each suggestion, specify:
+   - The section it belongs to (EXACTLY as it appears in the resume, in UPPERCASE)
+   - The specific role it pertains to (if applicable)
+   - The suggested bullet point or content
+
+Return ONLY a JSON object in this exact format:
+{{
+    "WORK EXPERIENCE": [
+        {{
+            "role": "Software Engineer at Google",
+            "suggestion": "• Implemented distributed caching system improving response times by 40%"
+        }}
+    ],
+    "SKILLS": [
+        {{
+            "suggestion": "• Proficient in Python, Django, and FastAPI"
+        }}
+    ]
+}}"""
+
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=2000,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        # Extract and parse JSON from response
+        response_content = response.content[0].text
+        json_start = response_content.find('{')
+        json_end = response_content.rfind('}') + 1
+        suggestions = json.loads(response_content[json_start:json_end])
+        print(suggestions)
+
+        # Apply suggestions in place
+        suggestions_added = False
+        for section, updates in suggestions.items():
+            section_found = False
+            for para in doc.paragraphs:
+                if para.text.strip().upper() == section:
+                    section_found = True
+                    for update in updates:
+                        suggestion_text = update.get('suggestion', '')
+                        if suggestion_text:
+                            # Add suggestion after the section header
+                            new_para = doc.add_paragraph(suggestion_text)
+                            new_para.style = para.style
+                            suggestions_added = True
+            if not section_found:
+                logger.warning(f"Section '{section}' not found in resume")
+                
+        if not suggestions_added:
+            raise ValueError("No suggestions could be added to the resume. Please check the section names match exactly.")
+
+        # Create downloads directory
+        downloads_dir = os.path.join(os.getcwd(), 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
+
+        # Save with timestamp
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        download_filename = f"updated_{timestamp}_{filename}"
+        download_path = os.path.join(downloads_dir, download_filename)
+
+        # Save the updated document
+        doc.save(download_path)
+
+        return send_file(
+            download_path,
+            as_attachment=True,
+            download_name=download_filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+
+    except Exception as e:
+        logger.error(f"Error in structured_resume_update: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        # Cleanup temporary files
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
