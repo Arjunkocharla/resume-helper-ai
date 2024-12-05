@@ -1459,7 +1459,7 @@ Return only the complete updated resume text, preserving all formatting and stru
                 success=False,
                 error=str(e)
             )
-        
+
 @app.route('/update_resume_enhanced', methods=['POST'])
 def update_resume_enhanced():
     if 'resume' not in request.files or 'job_description' not in request.form:
@@ -1746,7 +1746,7 @@ def inplace_resume_update():
         resume_text = '\n'.join([para.text for para in doc.paragraphs])
 
         # Get updated content from Claude
-        prompt = f"""As an expert ATS optimization specialist and resume editor, analyze this job description and update the resume to improve ATS scoring while maintaining exact formatting.
+        prompt = f"""As an expert ATS optimization specialist and resume editor, analyze this job description and update the resume to improve ATS scoring while maintaining the resume's current writing style and tone.
 
 Job Description:
 {job_description}
@@ -1756,15 +1756,30 @@ Resume:
 
 Instructions:
 1. Analyze the job description for key skills, qualifications, and terminology
-2. Update the resume by adding relevant bullet points and skills
+2. Update the resume by adding relevant bullet points and skills/tools that:
+   - Match the resume's existing writing style and tone for skills/tools sections (e.g. if skills are listed as single words, use single words)
+   - Demonstrate concrete impact and value for the target role
+   - Use action verbs and quantifiable metrics where appropriate
+   - Do not duplicate any existing skills/tools
 3. Preserve ALL existing content - do not remove anything
 4. Maintain exact formatting including:
-   - All bullet points using '•' symbol
-   - All section headers in UPPERCASE
+   - All bullet points using '•' symbol 
+   - All section headers in UPPERCASE (e.g. SKILLS, TOOLS, TECHNICAL SKILLS etc.)
    - All spacing and line breaks
    - Contact information format
    - Date formats
    - Company/role formats
+   - Skills/tools formatting and categorization
+5. Ensure each added bullet point:
+   - Follows the resume's current writing style
+   - Clearly demonstrates relevant skills/experience for the role
+   - Sounds natural and flows with surrounding content
+   - Shows specific impact and value delivered
+6. For skills/tools sections:
+   - Match the exact format used (e.g. comma-separated, bullet points, categories)
+   - Add only relevant missing skills/tools from job description
+   - Do not duplicate any existing skills/tools
+   - Maintain any existing categorization (e.g. Languages, Frameworks, Tools)
 
 Return only the complete updated resume text with all formatting preserved."""
 
@@ -2043,24 +2058,101 @@ Return ONLY a JSON object in this exact format:
         print(suggestions)
 
         # Apply suggestions in place
-        suggestions_added = False
         for section, updates in suggestions.items():
+            logger.info(f"Processing section: {section}")
             section_found = False
-            for para in doc.paragraphs:
+            
+            # Find the section and its index
+            for i, para in enumerate(doc.paragraphs):
                 if para.text.strip().upper() == section:
                     section_found = True
-                    for update in updates:
-                        suggestion_text = update.get('suggestion', '')
-                        if suggestion_text:
-                            # Add suggestion after the section header
-                            new_para = doc.add_paragraph(suggestion_text)
-                            new_para.style = para.style
-                            suggestions_added = True
-            if not section_found:
-                logger.warning(f"Section '{section}' not found in resume")
-                
-        if not suggestions_added:
-            raise ValueError("No suggestions could be added to the resume. Please check the section names match exactly.")
+                    logger.info(f"Found section '{section}' at index {i}")
+                    
+                    # Find section end
+                    section_end = len(doc.paragraphs)
+                    for j in range(i + 1, len(doc.paragraphs)):
+                        if doc.paragraphs[j].text.strip().isupper() and len(doc.paragraphs[j].text.strip().split()) <= 4:
+                            section_end = j
+                            break
+                    
+                    # Handle section based on its type
+                    section_type = get_section_type(section)
+                    
+                    if section_type == 'skills':
+                        # Look for any category-like lines (ending with colon)
+                        for update in updates:
+                            suggestion_text = update.get('suggestion', '')
+                            if suggestion_text:
+                                # Try to find a relevant category, or add to end of skills section
+                                category_found = False
+                                for k in range(i + 1, section_end):
+                                    if doc.paragraphs[k].text.strip().endswith(':'):
+                                        doc.paragraphs[k]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                        category_found = True
+                                        logger.info(f"Added skill under category: {doc.paragraphs[k].text.strip()}")
+                                        break
+                                
+                                if not category_found:
+                                    # Add to end of skills section if no categories found
+                                    doc.paragraphs[section_end-1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                    logger.info("Added skill to end of skills section")
+                    
+                    elif section_type == 'projects':
+                        for update in updates:
+                            suggestion_text = update.get('suggestion', '')
+                            project_name = update.get('role', '')  # Project name stored in 'role' field
+                            
+                            if suggestion_text:
+                                if project_name:
+                                    # Try to find matching project
+                                    for k in range(i + 1, section_end):
+                                        if project_name.lower() in doc.paragraphs[k].text.lower():
+                                            next_para = k + 1
+                                            while next_para < section_end and doc.paragraphs[next_para].text.strip().startswith('•'):
+                                                next_para += 1
+                                            doc.paragraphs[next_para - 1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                            logger.info(f"Added suggestion under project: {project_name}")
+                                            break
+                                else:
+                                    # Add to end of projects section if no specific project specified
+                                    doc.paragraphs[section_end-1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                    logger.info("Added project to end of section")
+                    
+                    elif section_type == 'experience':
+                        for update in updates:
+                            suggestion_text = update.get('suggestion', '')
+                            role = update.get('role', '')
+                            
+                            if suggestion_text:
+                                if role:
+                                    # Try to find matching role
+                                    for k in range(i + 1, section_end):
+                                        if role.lower() in doc.paragraphs[k].text.lower():
+                                            # Check for duplicates
+                                            is_duplicate = False
+                                            current_k = k + 1
+                                            while current_k < section_end and doc.paragraphs[current_k].text.strip().startswith('•'):
+                                                if suggestion_text.lower() in doc.paragraphs[current_k].text.lower():
+                                                    is_duplicate = True
+                                                    break
+                                                current_k += 1
+                                            
+                                            if not is_duplicate:
+                                                doc.paragraphs[k]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                                logger.info(f"Added suggestion under role: {role}")
+                                                break
+                                    else:
+                                        # Add to most recent role if no specific role specified
+                                        doc.paragraphs[i+1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                        logger.info("Added experience to most recent role")
+                    
+                    else:
+                        # Handle any other section type by appending suggestions to the end
+                        for update in updates:
+                            suggestion_text = update.get('suggestion', '')
+                            if suggestion_text:
+                                doc.paragraphs[section_end-1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
+                                logger.info(f"Added suggestion to section: {section}")
 
         # Create downloads directory
         downloads_dir = os.path.join(os.getcwd(), 'downloads')
@@ -2092,6 +2184,36 @@ Return ONLY a JSON object in this exact format:
                 os.remove(file_path)
         except Exception as e:
             logger.error(f"Cleanup error: {e}")
+
+def get_section_type(section_name: str) -> str:
+    """Determine the type of section based on common variations of section names"""
+    section_name = section_name.lower()
+    
+    # Map of section types to their common variations
+    section_mappings = {
+        'skills': [
+            'skills', 'technical skills', 'core skills', 'competencies', 
+            'expertise', 'qualifications', 'tools', 'technologies',
+            'skills & tools', 'technical expertise'
+        ],
+        'projects': [
+            'projects', 'project experience', 'technical projects',
+            'relevant projects', 'key projects', 'professional projects',
+            'computer science projects', 'software projects'
+        ],
+        'experience': [
+            'experience', 'work experience', 'professional experience',
+            'employment history', 'work history', 'career history',
+            'relevant experience', 'professional background'
+        ]
+    }
+    
+    # Check each section type
+    for section_type, variations in section_mappings.items():
+        if any(variation in section_name for variation in variations):
+            return section_type
+            
+    return 'other'
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist
