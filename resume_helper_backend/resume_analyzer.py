@@ -2027,6 +2027,11 @@ Instructions:
    - The section it belongs to (EXACTLY as it appears in the resume, in UPPERCASE)
    - The specific role it pertains to (if applicable)
    - The suggested bullet point or content
+   - Make sure for each role or project has atleast one suggestion
+   - Each point should be unique and not a duplicate of any other point
+4. If user mentioned skill in single word, use single word in suggestion as well.
+5. Your goal to to improve the resume for ATS scoring and return it in the same format as the resume, for example if user has skills divided into categories like languages, frameworks, tools, etc.
+6. Always remeber, it defeats the purpose if you rewrite the same point or skill etc in the resume, in your previous response, i saw you did that, please dont do that.
 
 Return ONLY a JSON object in this exact format:
 {{
@@ -2038,20 +2043,29 @@ Return ONLY a JSON object in this exact format:
     ],
     "SKILLS": [
         {{
-            "suggestion": "• Proficient in Python, Django, and FastAPI"
+            "suggestion": "•Python, Django, FastAPI"
         }}
     ]
+    this is just an example, dont copy the content from it
 }}"""
+        # response = client.messages.create(
+        #     model="claude-3-haiku-20240307",
+        #     max_tokens=2000,
+        #     temperature=0.2,
+        #     messages=[{"role": "user", "content": prompt}]
+        # )
 
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=2000,
+        # # Extract and parse JSON from response
+        # response_content = response.content[0].text
+
+        response = gpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             temperature=0.2,
             messages=[{"role": "user", "content": prompt}]
         )
 
         # Extract and parse JSON from response
-        response_content = response.content[0].text
+        response_content = response.choices[0].message.content
         json_start = response_content.find('{')
         json_end = response_content.rfind('}') + 1
         suggestions = json.loads(response_content[json_start:json_end])
@@ -2166,13 +2180,14 @@ Return ONLY a JSON object in this exact format:
         # Save the updated document
         doc.save(download_path)
 
-        return send_file(
-            download_path,
-            as_attachment=True,
-            download_name=download_filename,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
+        # return send_file(
+        #     download_path,
+        #     as_attachment=True,
+        #     download_name=download_filename,
+        #     mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        # )
 
+        return jsonify({'message': 'Resume updated successfully'}), 200
     except Exception as e:
         logger.error(f"Error in structured_resume_update: {str(e)}")
         return jsonify({'error': str(e)}), 500
