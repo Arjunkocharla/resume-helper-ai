@@ -269,14 +269,18 @@ def analyze_resume_structure():
         )
 
         # Extract the content from the response
-        response_content = response.content[0].text
+        response_content = response.content
+        if isinstance(response_content, list) and len(response_content) > 0:
+            response_text = response_content[0].text
+        else:
+            raise ValueError("Unexpected response format from Claude API")
 
         # Log the response content for debugging
-        print("Response Content:", response_content)
+        print("Response Content:", response_text)
 
         # Find the JSON part of the response
-        json_start = response_content.find('{')
-        json_end = response_content.rfind('}') + 1
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
         
         if json_start == -1 or json_end == 0:
             # If no JSON found, return a fallback response
@@ -325,7 +329,7 @@ def analyze_resume_structure():
             }), 200
 
         # Extract and try to parse the JSON part
-        json_str = response_content[json_start:json_end]
+        json_str = response_text[json_start:json_end]
         try:
             analysis = json.loads(json_str)
             return jsonify(analysis), 200
