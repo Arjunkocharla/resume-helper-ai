@@ -62,7 +62,9 @@ CORS(app,origins='*')
 # With this:
 
 
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(
+    api_key=os.getenv('ANTHROPIC_API_KEY')
+)
 
 gpt_client = openai.OpenAI(
     api_key = os.getenv("GPT_API_KEY"),
