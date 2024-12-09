@@ -258,23 +258,21 @@ def analyze_resume_structure():
     """
 
     try:
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
+        response = gpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             max_tokens=3000,
             temperature=0.2,
             messages=[
                 {
-                    "role": "user",
+                    "role": "user", 
                     "content": prompt
                 }
             ]
         )
 
         # Extract the content from the response
-        response_content = response.content
-        if isinstance(response_content, list) and len(response_content) > 0:
-            response_text = response_content[0].text
-        else:
+        response_text = response.choices[0].message.content
+        if not response_text:
             raise ValueError("Unexpected response format from Claude API")
 
         # Log the response content for debugging
