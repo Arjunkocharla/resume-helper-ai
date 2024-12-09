@@ -2031,7 +2031,8 @@ Instructions:
    - Each point should be unique and not a duplicate of any other point
 4. If user mentioned skill in single word, use single word in suggestion as well.
 5. Your goal to to improve the resume for ATS scoring and return it in the same format as the resume, for example if user has skills divided into categories like languages, frameworks, tools, etc.
-6. Always remeber, it defeats the purpose if you rewrite the same point or skill etc in the resume, in your previous response, i saw you did that, please dont do that.
+6. Always remember, it defeats the purpose if you rewrite the same point or skill etc in the resume, in your previous response, i saw you did that, please dont do that.
+7. Always remember, you cant take a point from one role or project and use it in another role or project, in your previous response, i saw you did that, please dont do that.
 
 Return ONLY a JSON object in this exact format:
 {{
