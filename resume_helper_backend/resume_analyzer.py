@@ -54,7 +54,16 @@ load_dotenv()
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app = Flask(__name__)
 CORS(app,origins='*')
-client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+#client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# Replace the current initialization
+# client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# With this:
+client = anthropic.Anthropic(
+    api_key=os.getenv('ANTHROPIC_API_KEY'),
+    base_url="https://api.anthropic.com",
+)
 
 gpt_client = openai.OpenAI(
     api_key = os.getenv("GPT_API_KEY"),
