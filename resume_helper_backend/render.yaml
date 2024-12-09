@@ -2,12 +2,13 @@ services:
   - type: web
     name: resume-helper-api
     env: python
+    rootDir: resume_helper_backend
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn resume_analyzer:app
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: GPT_API_KEY  
+      - key: GPT_API_KEY
         sync: false
       - key: B2_KEY_ID
         sync: false
