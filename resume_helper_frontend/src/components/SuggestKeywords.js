@@ -9,9 +9,8 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   ExitToApp as LogoutIcon,
-  AccountCircle as ProfileIcon,
   CheckCircleOutline,
-  Refresh as RefreshIcon,  // Changed this line
+  Refresh as RefreshIcon,
   Assessment as AssessmentIcon,
   Lightbulb as LightbulbIcon
 } from '@mui/icons-material';
@@ -34,8 +33,6 @@ function SuggestKeywords() {
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const [showActionPlan, setShowActionPlan] = useState(false);
 
-  const handleProfileClick = () => navigate('/profile');
-  
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -184,49 +181,35 @@ function SuggestKeywords() {
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
         }}>
-        <Container maxWidth="xl">
-          <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
-            <Typography variant="h6" 
-              onClick={handleHomeClick}  // Add this
+        <Toolbar>
+          <Typography 
+            variant="h6" 
+            onClick={handleHomeClick}
+            sx={{ 
+              flexGrow: 1,
+              background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontWeight: '700',
+              letterSpacing: '-0.5px',
+              cursor: 'pointer',
+              '&:hover': { opacity: 0.8 }
+            }}>
+            Resume Helper AI
+          </Typography>
+          
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <IconButton onClick={handleLogout}
               sx={{ 
-                flexGrow: 1, 
-                background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontWeight: '700',
-                letterSpacing: '-0.5px',
-                cursor: 'pointer',  // Add this to show it's clickable
-                '&:hover': {  // Add hover effect
-                  opacity: 0.8
-                }
+                color: '#1E3A8A',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)',
+                '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
               }}>
-              Resume Helper AI
-            </Typography>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <IconButton onClick={handleProfileClick} 
-                sx={{ 
-                  color: '#1E3A8A',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(10px)',
-                  mr: 1,
-                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                }}>
-                <ProfileIcon />
-              </IconButton>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <IconButton onClick={handleLogout}
-                sx={{ 
-                  color: '#1E3A8A',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                }}>
-                <LogoutIcon />
-              </IconButton>
-            </motion.div>
-          </Toolbar>
-        </Container>
+              <LogoutIcon />
+            </IconButton>
+          </motion.div>
+        </Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ mt: { xs: 4, md: 8 }, position: 'relative', zIndex: 1 }}>

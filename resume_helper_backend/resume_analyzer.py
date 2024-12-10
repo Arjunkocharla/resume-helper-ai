@@ -112,7 +112,7 @@ def extract_text(file_path):
     else:
         raise ValueError('Unsupported file format')
 
-def analyze_keywords_with_claude(resume_text, job_category):
+def analyze_keywords_with_gpt(resume_text, job_category):
     prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
 
 First, identify the main sections in the resume. Then, for each suggested improvement, specify which of these EXACT sections it should be placed under.
@@ -154,20 +154,20 @@ Provide the output in this JSON format:
   ]
 }}"""
 
-    response = client.messages.create(
-        model="claude-3-haiku-20240307",
+    response = gpt_client.chat.completions.create(
+        model="gpt-3.5-turbo",
         max_tokens=2000,
         temperature=0.2,
         messages=[
             {
-                "role": "user",
+                "role": "user", 
                 "content": prompt
             }
         ]
     )
 
     # Extract the JSON part from the response
-    response_content = response.content[0].text
+    response_content = response.choices[0].message.content
     json_start = response_content.find('{')
     json_end = response_content.rfind('}') + 1
     json_str = response_content[json_start:json_end]
@@ -370,7 +370,7 @@ def analyze_keywords():
     resume_text = extract_text(file_path)
 
     try:
-        analysis_json = analyze_keywords_with_claude(resume_text, job_category)
+        analysis_json = analyze_keywords_with_gpt(resume_text, job_category)
         analysis = json.loads(analysis_json)  # Parse the JSON string here
         return jsonify({
             'job_category': job_category,
@@ -558,16 +558,19 @@ Provide your response in the following JSON format:
 """
 
     try:
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
+        response = gpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             max_tokens=2000,
             temperature=0.3,
             messages=[
-                {"role": "user", "content": prompt}
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ]
         )
 
-        response_content = response.content[0].text
+        response_content = response.choices[0].message.content
         json_start = response_content.find('{')
         json_end = response_content.rfind('}') + 1
         json_str = response_content[json_start:json_end]

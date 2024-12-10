@@ -22,7 +22,6 @@ import {
   CompareArrows as CompareArrowsIcon,
   Lightbulb as LightbulbIcon,
   Refresh as RefreshIcon,
-  AccountCircle as ProfileIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
 import { Radar } from 'react-chartjs-2';
@@ -113,7 +112,6 @@ const AnalyzeResumeStructure = () => {
   };
 
   const handleHomeClick = () => navigate('/');
-  const handleProfileClick = () => navigate('/profile');
   const handleRestart = () => {
     setFile(null);
     setAnalysis(null);
@@ -1034,68 +1032,41 @@ const AnalyzeResumeStructure = () => {
         </Box>
 
         {/* Keep existing AppBar */}
-        <AppBar position="static" sx={{ background: 'transparent', boxShadow: 'none' }}>
-          <Container maxWidth="xl">
-            <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
-              <Typography 
-                variant="h6" 
-                onClick={handleHomeClick}
+        <AppBar position="static" elevation={0} 
+          sx={{ 
+            background: 'transparent', 
+            backdropFilter: 'blur(10px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+          <Toolbar>
+            <Typography 
+              variant="h6" 
+              onClick={handleHomeClick}
+              sx={{ 
+                flexGrow: 1,
+                background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: '700',
+                letterSpacing: '-0.5px',
+                cursor: 'pointer',
+                '&:hover': { opacity: 0.8 }
+              }}>
+              Resume Helper AI
+            </Typography>
+            
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <IconButton onClick={handleLogout}
                 sx={{ 
-                  flexGrow: 1, 
-                  background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: '700',
-                  letterSpacing: '-0.5px',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.8
-                  }
+                  color: '#1E3A8A',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
                 }}>
-                Resume Helper AI
-              </Typography>
-              
-              {analysis && (
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <IconButton onClick={handleRestart} 
-                    sx={{ 
-                      color: '#1E3A8A',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      backdropFilter: 'blur(10px)',
-                      mr: 1,
-                      '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                    }}>
-                    <RefreshIcon />
-                  </IconButton>
-                </motion.div>
-              )}
-
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <IconButton onClick={handleProfileClick} 
-                  sx={{ 
-                    color: '#1E3A8A',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    mr: 1,
-                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                  }}>
-                  <ProfileIcon />
-                </IconButton>
-              </motion.div>
-              
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <IconButton onClick={handleLogout}
-                  sx={{ 
-                    color: '#1E3A8A',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                  }}>
-                  <LogoutIcon />
-                </IconButton>
-              </motion.div>
-            </Toolbar>
-          </Container>
+                <LogoutIcon />
+              </IconButton>
+            </motion.div>
+          </Toolbar>
         </AppBar>
 
         {/* Main Content */}

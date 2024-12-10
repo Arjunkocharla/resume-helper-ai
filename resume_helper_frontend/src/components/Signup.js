@@ -121,6 +121,7 @@ function SignupPage() {
       <Container maxWidth="lg" sx={{ pt: 8, position: 'relative', zIndex: 1 }}>
         <Grid container spacing={4} alignItems="center">
           {/* Left side - Product Info */}
+          {/* Commenting out onboarding section
           <Grid item xs={12} md={6}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -180,9 +181,10 @@ function SignupPage() {
               </Box>
             </motion.div>
           </Grid>
+          */}
 
           {/* Right side - Signup Form */}
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={6} sx={{ mx: 'auto' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
