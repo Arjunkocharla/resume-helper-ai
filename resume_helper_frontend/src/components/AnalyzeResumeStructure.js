@@ -102,7 +102,7 @@ const AnalyzeResumeStructure = () => {
     formData.append('resume', file);
     formData.append('retry', retry.toString());
 
-    const response = await fetch('http://127.0.0.1:5000/analyze_resume_structure', {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/analyze_resume_structure`, {
       method: 'POST',
       body: formData,
     });

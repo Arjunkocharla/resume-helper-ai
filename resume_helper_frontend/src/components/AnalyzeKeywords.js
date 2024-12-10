@@ -73,7 +73,7 @@ function AnalyzeKeywords() {
     formData.append('job_category', jobCategory);
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/analyze_keywords', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/analyze_keywords`, {
         method: 'POST',
         body: formData,
       });

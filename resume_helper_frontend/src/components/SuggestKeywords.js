@@ -65,7 +65,7 @@ function SuggestKeywords() {
     formData.append('job_description', jobDescription);
     formData.append('retry', retry.toString());
 
-    const response = await fetch('http://127.0.0.1:5000/suggest_keywords', {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/suggest_keywords`, {
       method: 'POST',
       body: formData,
     });
