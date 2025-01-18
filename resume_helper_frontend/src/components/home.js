@@ -19,7 +19,6 @@ import {
   Search as KeywordIcon,
   Lightbulb as SuggestIcon,
   ExitToApp as LogoutIcon,
-  AccountCircle as ProfileIcon,
 } from '@mui/icons-material';
 
 function Home() {
@@ -36,10 +35,6 @@ function Home() {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
-
-  const handleProfileClick = () => {
-    navigate('/profile');
   };
 
   const analysisOptions = [
@@ -103,18 +98,6 @@ function Home() {
           >
             Resume Helper AI
           </Typography>
-          <IconButton
-            onClick={handleProfileClick}
-            sx={{
-              color: '#1E3A8A',
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(10px)',
-              mr: 1,
-              '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-            }}
-          >
-            <ProfileIcon />
-          </IconButton>
           <IconButton
             onClick={handleLogout}
             sx={{

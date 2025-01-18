@@ -47,13 +47,24 @@ import time
 from werkzeug.utils import secure_filename
 from flask import jsonify, send_file
 from typing import Dict, Optional, Tuple
+import re
 
 # Load environment variables
 load_dotenv()
 ALLOWED_EXTENSIONS = {'pdf', 'docx'}
 app = Flask(__name__)
-CORS(app)
-client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+CORS(app,origins='*')
+#client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# Replace the current initialization
+# client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# With this:
+
+
+client = anthropic.Anthropic(
+    api_key=os.getenv('ANTHROPIC_API_KEY')
+)
 
 gpt_client = openai.OpenAI(
     api_key = os.getenv("GPT_API_KEY"),
@@ -103,7 +114,7 @@ def extract_text(file_path):
     else:
         raise ValueError('Unsupported file format')
 
-def analyze_keywords_with_claude(resume_text, job_category):
+def analyze_keywords_with_gpt(resume_text, job_category):
     prompt = f"""As an expert HR specialist with deep knowledge of the {job_category} industry, analyze this resume for a {job_category} position.
 
 First, identify the main sections in the resume. Then, for each suggested improvement, specify which of these EXACT sections it should be placed under.
@@ -145,20 +156,20 @@ Provide the output in this JSON format:
   ]
 }}"""
 
-    response = client.messages.create(
-        model="claude-3-haiku-20240307",
+    response = gpt_client.chat.completions.create(
+        model="gpt-3.5-turbo",
         max_tokens=2000,
         temperature=0.2,
         messages=[
             {
-                "role": "user",
+                "role": "user", 
                 "content": prompt
             }
         ]
     )
 
     # Extract the JSON part from the response
-    response_content = response.content[0].text
+    response_content = response.choices[0].message.content
     json_start = response_content.find('{')
     json_end = response_content.rfind('}') + 1
     json_str = response_content[json_start:json_end]
@@ -249,27 +260,29 @@ def analyze_resume_structure():
     """
 
     try:
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
+        response = gpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             max_tokens=3000,
             temperature=0.2,
             messages=[
                 {
-                    "role": "user",
+                    "role": "user", 
                     "content": prompt
                 }
             ]
         )
 
         # Extract the content from the response
-        response_content = response.content[0].text
+        response_text = response.choices[0].message.content
+        if not response_text:
+            raise ValueError("Unexpected response format from Claude API")
 
         # Log the response content for debugging
-        print("Response Content:", response_content)
+        print("Response Content:", response_text)
 
         # Find the JSON part of the response
-        json_start = response_content.find('{')
-        json_end = response_content.rfind('}') + 1
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
         
         if json_start == -1 or json_end == 0:
             # If no JSON found, return a fallback response
@@ -318,7 +331,7 @@ def analyze_resume_structure():
             }), 200
 
         # Extract and try to parse the JSON part
-        json_str = response_content[json_start:json_end]
+        json_str = response_text[json_start:json_end]
         try:
             analysis = json.loads(json_str)
             return jsonify(analysis), 200
@@ -359,7 +372,7 @@ def analyze_keywords():
     resume_text = extract_text(file_path)
 
     try:
-        analysis_json = analyze_keywords_with_claude(resume_text, job_category)
+        analysis_json = analyze_keywords_with_gpt(resume_text, job_category)
         analysis = json.loads(analysis_json)  # Parse the JSON string here
         return jsonify({
             'job_category': job_category,
@@ -547,16 +560,19 @@ Provide your response in the following JSON format:
 """
 
     try:
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
+        response = gpt_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             max_tokens=2000,
             temperature=0.3,
             messages=[
-                {"role": "user", "content": prompt}
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ]
         )
 
-        response_content = response.content[0].text
+        response_content = response.choices[0].message.content
         json_start = response_content.find('{')
         json_end = response_content.rfind('}') + 1
         json_str = response_content[json_start:json_end]
@@ -2136,33 +2152,76 @@ Return ONLY a JSON object in this exact format:
                                     logger.info("Added project to end of section")
                     
                     elif section_type == 'experience':
+                        logger.info("Processing experience section")
+                        # Group suggestions by role
+                        role_suggestions = {}
                         for update in updates:
-                            suggestion_text = update.get('suggestion', '')
                             role = update.get('role', '')
+                            suggestion = update.get('suggestion', '')
+                            if role and suggestion:
+                                if role not in role_suggestions:
+                                    role_suggestions[role] = []
+                                role_suggestions[role].append(suggestion)
+                        
+                        # Process each role's suggestions
+                        for role, suggestions in role_suggestions.items():
+                            logger.info(f"Processing suggestions for role: {role}")
+                            role_found = False
                             
-                            if suggestion_text:
-                                if role:
-                                    # Try to find matching role
-                                    for k in range(i + 1, section_end):
-                                        if role.lower() in doc.paragraphs[k].text.lower():
-                                            # Check for duplicates
-                                            is_duplicate = False
-                                            current_k = k + 1
-                                            while current_k < section_end and doc.paragraphs[current_k].text.strip().startswith('•'):
-                                                if suggestion_text.lower() in doc.paragraphs[current_k].text.lower():
-                                                    is_duplicate = True
-                                                    break
-                                                current_k += 1
-                                            
-                                            if not is_duplicate:
-                                                doc.paragraphs[k]._p.addnext(doc.add_paragraph(suggestion_text)._p)
-                                                logger.info(f"Added suggestion under role: {role}")
+                            # Find the specific role
+                            for k in range(i + 1, section_end):
+                                para_text = doc.paragraphs[k].text.strip()
+                                if not para_text.startswith('•'):  # This is potentially a role line
+                                    # More flexible role matching using key parts of the role
+                                    role_key_parts = [part.lower() for part in role.split() if len(part) > 3]
+                                    para_key_parts = [part.lower() for part in para_text.split() if len(part) > 3]
+                                    
+                                    # Check if enough key parts match
+                                    matches = sum(1 for part in role_key_parts if any(part in p for p in para_key_parts))
+                                    if matches >= min(2, len(role_key_parts)):  # At least 2 matches or all parts if less
+                                        logger.info(f"Found matching role at index {k}: {para_text}")
+                                        role_found = True
+                                        
+                                        # Find end of this role (start of next role or section end)
+                                        role_end = section_end
+                                        for j in range(k + 1, section_end):
+                                            next_text = doc.paragraphs[j].text.strip()
+                                            # Check for next role by looking for date patterns or known role titles
+                                            if (not next_text.startswith('•') and 
+                                                next_text and 
+                                                j > k + 1 and
+                                                (
+                                                    # Date patterns
+                                                    any(month in next_text for month in ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']) or
+                                                    # Common date formats
+                                                    bool(re.search(r'\d{4}[-/]\d{4}|\d{4}[-/]Present|20\d{2}|19\d{2}', next_text)) or
+                                                    # Company indicators
+                                                    any(indicator in next_text for indicator in ['Inc.', 'LLC', 'Ltd.', 'Corp.', 'Corporation']) or
+                                                    # Location patterns
+                                                    bool(re.search(r'[A-Z][A-Za-z\s]+,\s*[A-Z]{2}', next_text)) or
+                                                    # Role transition indicators
+                                                    ':' in next_text or
+                                                    'position' in next_text.lower() or
+                                                    'role' in next_text.lower()
+                                                )
+                                            ):
+                                                role_end = j
                                                 break
-                                    else:
-                                        # Add to most recent role if no specific role specified
-                                        doc.paragraphs[i+1]._p.addnext(doc.add_paragraph(suggestion_text)._p)
-                                        logger.info("Added experience to most recent role")
-                    
+                                        
+                                        # Skip past company location
+                                        start_idx = k
+                                        for loc_idx in range(k + 1, role_end):
+                                            if doc.paragraphs[loc_idx].text.strip() and not doc.paragraphs[loc_idx].text.strip().startswith('•'):
+                                                start_idx = loc_idx
+                                                break
+                                        
+                                        logger.info(f"Adding {len(suggestions)} suggestions under role between indices {start_idx} and {role_end}")
+                                        add_experience_bullets(doc, start_idx, role_end, suggestions)
+                                        break
+                            
+                            if not role_found:
+                                logger.warning(f"Could not find matching role: {role}")
+
                     else:
                         # Handle any other section type by appending suggestions to the end
                         for update in updates:
@@ -2232,6 +2291,72 @@ def get_section_type(section_name: str) -> str:
             return section_type
             
     return 'other'
+
+def add_experience_bullets(doc, role_start_idx: int, role_end_idx: int, suggestions: List[str]) -> None:
+    """Add bullet points with consistent formatting under a role"""
+    logger.info(f"Adding {len(suggestions)} bullet points between indices {role_start_idx} and {role_end_idx}")
+    
+    # Find existing bullet points to use as template for formatting
+    template_bullet = None
+    for i in range(role_start_idx + 1, role_end_idx):
+        if doc.paragraphs[i].text.strip().startswith('•'):
+            template_bullet = doc.paragraphs[i]
+            break
+    
+    # Find all existing bullet points under this role
+    bullet_indices = []
+    for i in range(role_start_idx + 1, role_end_idx):
+        if doc.paragraphs[i].text.strip().startswith('•'):
+            bullet_indices.append(i)
+    
+    logger.info(f"Found {len(bullet_indices)} existing bullet points")
+    
+    # If no existing bullets, add all suggestions after role with default formatting
+    if not bullet_indices:
+        for suggestion in suggestions:
+            new_para = doc.add_paragraph(suggestion)
+            new_para.paragraph_format.left_indent = Inches(0.5)  # Default indentation
+            doc.paragraphs[role_start_idx]._p.addnext(new_para._p)
+            logger.info(f"Added bullet point after role: {suggestion}")
+        return
+
+    # Distribute suggestions across existing bullets
+    for idx, suggestion in enumerate(suggestions):
+        # Choose insertion point based on position in suggestions list
+        position = (idx * len(bullet_indices)) // len(suggestions)
+        insert_idx = bullet_indices[position]
+        
+        # Create new paragraph with matching formatting
+        new_para = doc.add_paragraph()
+        
+        # Copy formatting from template if available
+        if template_bullet:
+            # Copy paragraph format (indentation, spacing, etc.)
+            if template_bullet._element.pPr is not None:
+                new_para._element.get_or_add_pPr().append(
+                    deepcopy(template_bullet._element.pPr)
+                )
+            
+            # Copy run format (font, size, etc.)
+            if template_bullet.runs:
+                new_run = new_para.add_run(suggestion)
+                template_run = template_bullet.runs[0]
+                if hasattr(template_run.font, 'name'):
+                    new_run.font.name = template_run.font.name
+                if hasattr(template_run.font, 'size'):
+                    new_run.font.size = template_run.font.size
+                new_run.font.bold = template_run.font.bold
+                new_run.font.italic = template_run.font.italic
+            else:
+                new_para.add_run(suggestion)
+        else:
+            # Default formatting if no template
+            new_para.add_run(suggestion)
+            new_para.paragraph_format.left_indent = Inches(0.5)
+        
+        # Insert at the chosen position
+        doc.paragraphs[insert_idx]._p.addnext(new_para._p)
+        logger.info(f"Added formatted bullet point at position {position}: {suggestion}")
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist

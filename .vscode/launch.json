@@ -19,9 +19,9 @@
       ],
       "jinja": true,
       // Windows path
-      // "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       // macOS/Linux path
-      "python": "${workspaceFolder}/.venv/bin/python",
+      // "python": "${workspaceFolder}/.venv/bin/python",
       "cwd": "${workspaceFolder}/resume_helper_backend"
     },
     {
@@ -47,10 +47,11 @@
       "name": "Debug React",
       "type": "chrome",
       "request": "launch",
-      "url": "http://127.0.0.1:3002",
-      "webRoot": "C:/Users/Administrator/Documents/resume-help/resume-helper-ai/resume_helper_frontend",
+      "url": "http://localhost:3002",
+      "webRoot": "${workspaceFolder}/resume_helper_frontend",
+      "userDataDir": false,
       "sourceMapPathOverrides": {
-        "webpack:///src/*": "${webRoot}/src/*"
+        "webpack:///src/*": "${workspaceFolder}/resume_helper_frontend/src/*"
       }
     }
   ]

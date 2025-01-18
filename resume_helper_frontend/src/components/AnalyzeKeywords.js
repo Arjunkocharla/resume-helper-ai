@@ -3,7 +3,7 @@ import {
   Container, Typography, Button, TextField, Paper, Box, CircularProgress,
   Alert, Fade, Card, CardContent, Chip, Tooltip, IconButton, useTheme,
   Stepper, Step, StepLabel, StepContent, List, ListItem, ListItemIcon, ListItemText,
-  AppBar, Toolbar, Grid, Collapse
+  AppBar, Toolbar, Grid, Collapse, MenuItem
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -11,7 +11,6 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Logout as LogoutIcon,
-  AccountCircle as ProfileIcon,
   CheckCircleOutline,
   Lightbulb as LightbulbIcon
 } from '@mui/icons-material';
@@ -52,8 +51,6 @@ function AnalyzeKeywords() {
 
   const handleHomeClick = () => navigate('/');
   
-  const handleProfileClick = () => navigate('/profile');
-  
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -76,7 +73,7 @@ function AnalyzeKeywords() {
     formData.append('job_category', jobCategory);
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/analyze_keywords', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/analyze_keywords`, {
         method: 'POST',
         body: formData,
       });
@@ -153,22 +150,56 @@ function AnalyzeKeywords() {
       content: (
         <Box>
           <TextField
+            select
             fullWidth
             label="Job Category"
-            variant="outlined"
             value={jobCategory}
             onChange={handleJobCategoryChange}
             sx={{ 
-              mt: 2,
-              '& .MuiOutlinedInput-root': {
-                '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
-                '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
+              mb: 3,
+              '& .MuiSelect-select': {
+                color: '#1E293B',
               },
-              '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-              '& .MuiInputBase-input': { color: 'white' },
+              '& .MuiInputLabel-root': {
+                color: '#64748B',
+                '&.Mui-focused': {
+                  color: '#3B82F6'
+                }
+              },
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: 'white',
+                '& fieldset': {
+                  borderColor: 'rgba(59, 130, 246, 0.2)',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#3B82F6',
+                }
+              }
             }}
-          />
+            SelectProps={{
+              native: false,
+              MenuProps: {
+                PaperProps: {
+                  sx: {
+                    backgroundColor: 'white',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    borderRadius: '8px',
+                    mt: 1
+                  }
+                }
+              }
+            }}
+          >
+            <MenuItem value="">Select a job category</MenuItem>
+            <MenuItem value="software_engineering">Software Engineering</MenuItem>
+            <MenuItem value="data_science">Data Science</MenuItem>
+            <MenuItem value="product_management">Product Management</MenuItem>
+            <MenuItem value="marketing">Marketing</MenuItem>
+            <MenuItem value="sales">Sales</MenuItem>
+          </TextField>
           <Button
             onClick={handleNextStep}
             variant="contained"
@@ -293,7 +324,7 @@ function AnalyzeKeywords() {
                 Suggested Implementations:
               </Typography>
               <List>
-                {keyword.bullet_points.map((point, bulletIndex) => (
+                {keyword.bullet_points.map((bulletPoint, bulletIndex) => (
                   <ListItem key={bulletIndex}
                     sx={{
                       background: 'rgba(59, 130, 246, 0.05)',
@@ -302,13 +333,15 @@ function AnalyzeKeywords() {
                     }}
                     secondaryAction={
                       <Tooltip title="Copy to clipboard">
-                        <IconButton onClick={() => copyToClipboard(point)}>
+                        <IconButton onClick={() => copyToClipboard(
+                          typeof bulletPoint === 'object' ? bulletPoint.point : bulletPoint
+                        )}>
                           <ContentCopy sx={{ color: '#3B82F6' }} />
                         </IconButton>
                       </Tooltip>
                     }>
                     <ListItemText
-                      primary={point}
+                      primary={typeof bulletPoint === 'object' ? bulletPoint.point : bulletPoint}
                       primaryTypographyProps={{ color: '#1E293B' }}
                     />
                   </ListItem>
@@ -385,17 +418,50 @@ function AnalyzeKeywords() {
           label="Job Category"
           value={jobCategory}
           onChange={handleJobCategoryChange}
-          sx={{ mb: 3 }}
+          sx={{ 
+            mb: 3,
+            '& .MuiSelect-select': {
+              color: '#1E293B',
+            },
+            '& .MuiInputLabel-root': {
+              color: '#64748B',
+              '&.Mui-focused': {
+                color: '#3B82F6'
+              }
+            },
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: 'white',
+              '& fieldset': {
+                borderColor: 'rgba(59, 130, 246, 0.2)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(59, 130, 246, 0.3)',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: '#3B82F6',
+              }
+            }
+          }}
           SelectProps={{
-            native: true,
+            native: false,
+            MenuProps: {
+              PaperProps: {
+                sx: {
+                  backgroundColor: 'white',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                  mt: 1
+                }
+              }
+            }
           }}
         >
-          <option value="">Select a job category</option>
-          <option value="software_engineering">Software Engineering</option>
-          <option value="data_science">Data Science</option>
-          <option value="product_management">Product Management</option>
-          <option value="marketing">Marketing</option>
-          <option value="sales">Sales</option>
+          <MenuItem value="">Select a job category</MenuItem>
+          <MenuItem value="software_engineering">Software Engineering</MenuItem>
+          <MenuItem value="data_science">Data Science</MenuItem>
+          <MenuItem value="product_management">Product Management</MenuItem>
+          <MenuItem value="marketing">Marketing</MenuItem>
+          <MenuItem value="sales">Sales</MenuItem>
         </TextField>
 
         <Button
@@ -493,48 +559,35 @@ function AnalyzeKeywords() {
             backdropFilter: 'blur(10px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
-          <Container maxWidth="xl">
-            <Toolbar sx={{ px: { xs: 0, sm: 2 } }}>
-              <Typography 
-                variant="h6" 
-                onClick={handleHomeClick}
+          <Toolbar>
+            <Typography 
+              variant="h6" 
+              onClick={handleHomeClick}
+              sx={{ 
+                flexGrow: 1,
+                background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: '700',
+                letterSpacing: '-0.5px',
+                cursor: 'pointer',
+                '&:hover': { opacity: 0.8 }
+              }}>
+              Resume Helper AI
+            </Typography>
+            
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <IconButton onClick={handleLogout}
                 sx={{ 
-                  flexGrow: 1, 
-                  background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: '700',
-                  letterSpacing: '-0.5px',
-                  cursor: 'pointer',
-                  '&:hover': { opacity: 0.8 }
+                  color: '#1E3A8A',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
                 }}>
-                Resume Helper AI
-              </Typography>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <IconButton onClick={handleProfileClick} 
-                  sx={{ 
-                    color: '#1E3A8A',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    mr: 1,
-                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                  }}>
-                  <ProfileIcon />
-                </IconButton>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <IconButton onClick={handleLogout}
-                  sx={{ 
-                    color: '#1E3A8A',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    '&:hover': { background: 'rgba(255, 255, 255, 0.2)' }
-                  }}>
-                  <LogoutIcon />
-                </IconButton>
-              </motion.div>
-            </Toolbar>
-          </Container>
+                <LogoutIcon />
+              </IconButton>
+            </motion.div>
+          </Toolbar>
         </AppBar>
 
         {/* Main Content */}
