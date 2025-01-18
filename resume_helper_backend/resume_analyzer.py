@@ -61,9 +61,11 @@ gpt_client = openai.OpenAI(
 
 
 # Configure upload folder and allowed extensions
-UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
-ALLOWED_EXTENSIONS = {'pdf', 'docx'}
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {'pdf', 'docx'}
+
 
 # Backblaze B2 configuration
 B2_KEY_ID = os.getenv('B2_KEY_ID')
@@ -467,7 +469,7 @@ def suggest_keywords():
         return jsonify({'error': 'Invalid file. Only PDF and DOCX are allowed.'}), 400
 
     filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(file_path)
 
     resume_text = extract_text(file_path)
