@@ -491,7 +491,7 @@ def suggest_keywords():
 
 """ if retry else ""
 
-    prompt = f"""{retry_prefix}As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions. Focus on actionable, industry-specific improvements that will maximize ATS scoring.
+    prompt = f"""{retry_prefix}As an expert ATS optimization specialist and industry recruiter, perform a deep analysis of this resume and job description to provide highly specific, tailored 6-7 keyword suggestions(don't skimp on the number of keywords, i need atleast 5-6). Focus on actionable, industry-specific improvements that will maximize ATS scoring.
     Respond ONLY with valid JSON in the exact format shown below and is parseable with json loads, with no additional text or explanations.
 
 1. First, analyze the resume to understand:
