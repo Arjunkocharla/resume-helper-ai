@@ -48,6 +48,24 @@ from werkzeug.utils import secure_filename
 from flask import jsonify, send_file
 from typing import Dict, Optional, Tuple
 import re
+from langchain_community.document_loaders import Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # Correct import
+from langchain_openai import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field
+from typing import List, Dict
+from flask import Blueprint, request, jsonify
+from werkzeug.utils import secure_filename
+import os
+from services.resume_enhancement import (
+    DocumentProcessor,
+    EnhancementChain,
+    DocumentEnhancer
+)
+bp = Blueprint('resume_enhancement', __name__)
 
 # Load environment variables
 load_dotenv()
@@ -61,6 +79,10 @@ CORS(app,origins='*')
 
 # With this:
 
+bp = Blueprint('resume', __name__)
+
+# Register the Blueprint with the app
+app.register_blueprint(bp)
 
 client = anthropic.Anthropic(
     api_key=os.getenv('ANTHROPIC_API_KEY')
@@ -2357,6 +2379,62 @@ def add_experience_bullets(doc, role_start_idx: int, role_end_idx: int, suggesti
         # Insert at the chosen position
         doc.paragraphs[insert_idx]._p.addnext(new_para._p)
         logger.info(f"Added formatted bullet point at position {position}: {suggestion}")
+
+@app.route('/enhance-resume', methods=['POST'])
+def enhance_resume():
+    if 'resume' not in request.files or 'description' not in request.form:
+        return jsonify({'error': 'Resume file and job description required'}), 400
+
+    file = request.files['resume']
+    job_description = request.form['description']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'File type not allowed'}), 400
+
+    try:
+        # Save uploaded file to temp location
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp', filename)
+        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+        file.save(temp_path)
+
+        # Initialize services
+        doc_processor = DocumentProcessor()
+        enhancement_chain = EnhancementChain()
+        doc_enhancer = DocumentEnhancer()
+
+        # Process document
+        sections = doc_processor.load_and_parse(temp_path)
+        
+        # Generate enhancements
+        suggestions = enhancement_chain.run(sections, job_description)
+        
+        # Apply enhancements
+        doc = Document(temp_path)
+        enhanced_doc = doc_enhancer.enhance_document(doc, suggestions.sections)
+        
+        # Save enhanced document to uploads folder with timestamp
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        enhanced_filename = f'enhanced_{timestamp}_{filename}'
+        enhanced_path = os.path.join(app.config['UPLOAD_FOLDER'], enhanced_filename)
+        enhanced_doc.save(enhanced_path)
+
+        return jsonify({
+            'message': 'Resume enhanced successfully',
+            'suggestions': suggestions.dict(),
+            'enhanced_file': enhanced_filename
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        # Only cleanup temp file
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
 
 if __name__ == '__main__':
     # Create UPLOAD_FOLDER if it doesn't exist

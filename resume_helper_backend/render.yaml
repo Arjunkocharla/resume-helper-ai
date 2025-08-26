@@ -3,12 +3,18 @@ services:
     name: resume-helper-api
     env: python
     rootDir: resume_helper_backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn resume_analyzer:app
+    buildCommand: |
+      pip install -r requirements.txt
+      # Install LibreOffice for PDF conversion
+      apt-get update && apt-get install -y libreoffice
+      # Note: On Linux, the command is 'soffice' (same as macOS)
+    startCommand: gunicorn app:app
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: GPT_API_KEY
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
         sync: false
       - key: B2_KEY_ID
         sync: false
