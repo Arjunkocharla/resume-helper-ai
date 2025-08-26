@@ -62,6 +62,20 @@ def health_check():
         'version': '1.0.0'
     })
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint for debugging"""
+    return jsonify({
+        'message': 'Resume Helper API is running',
+        'endpoints': [
+            '/health',
+            '/api/enhance-resume',
+            '/api/analyze-resume',
+            '/suggest_keywords'
+        ],
+        'timestamp': datetime.now().isoformat()
+    })
+
 @app.route('/api/status', methods=['GET'])
 def api_status():
     """API status and configuration"""
@@ -552,9 +566,11 @@ if __name__ == '__main__':
     logger.info(f"Resumes folder: {app.config['RESUMES_FOLDER']}")
     
     # Run the app
+    port = int(os.environ.get('PORT', 5001))
+    logger.info(f"Starting app on port {port}")
     app.run(
         host='0.0.0.0',
-        port=5001,
-        debug=True,
+        port=port,
+        debug=False,  # Set to False for production
         threaded=True
     )
