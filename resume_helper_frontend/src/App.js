@@ -14,6 +14,8 @@ import Login from './components/Login';
 import SignUp from './components/Signup';
 import Home from './components/home';
 import UserProfileComponent from './components/UserProfileComponent'; // Import the UserProfileComponent
+import ResumeEnhancer from './components/ResumeEnhancer';
+import ResumeEnhancerDemo from './components/ResumeEnhancerDemo';
 
 // Create a theme instance
 const theme = createTheme();
@@ -44,6 +46,8 @@ function App() {
           <Route path="/analyze-keywords" element={<AnalyzeKeywords />} />
           <Route path="/suggest-keywords" element={<SuggestKeywords />} />
           <Route path="/analyze-resume-structure" element={<AnalyzeResumeStructure />} />
+          <Route path="/resume-enhancer" element={<ResumeEnhancer />} />
+          <Route path="/resume-enhancer-demo" element={<ResumeEnhancerDemo />} />
           <Route path="/profile" element={<UserProfileComponent />} />
           <Route path="/" element={
             user ? <Navigate to="/home" /> : <Navigate to="/login" />

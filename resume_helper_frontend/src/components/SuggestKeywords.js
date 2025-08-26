@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import API_CONFIG from '../config/api';
 
 function SuggestKeywords() {
   const [file, setFile] = useState(null);
@@ -65,7 +66,7 @@ function SuggestKeywords() {
     formData.append('job_description', jobDescription);
     formData.append('retry', retry.toString());
 
-    const response = await fetch(`${process.env.REACT_APP_API_URL}/suggest_keywords`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SUGGEST_KEYWORDS}`, {
       method: 'POST',
       body: formData,
     });

@@ -39,6 +39,14 @@ function Home() {
 
   const analysisOptions = [
     {
+      title: 'AI Resume Enhancer',
+      icon: <SuggestIcon fontSize="large" />,
+      path: '/resume-enhancer',
+      description: 'Upload resume and JD to get AI-enhanced version with missing keywords',
+      color: '#8B5CF6',
+      primary: true,
+    },
+    {
       title: 'Suggest Keywords',
       icon: <SuggestIcon fontSize="large" />,
       path: '/suggest-keywords',
@@ -51,15 +59,14 @@ function Home() {
       path: '/analyze-resume-structure',
       description: "Get a comprehensive analysis of your resume's structure and content",
       color: '#10B981',
-      primary: true,
     },
-    {
-      title: 'Keyword Analysis',
-      icon: <KeywordIcon fontSize="large" />,
-      path: '/analyze-keywords',
-      description: "Identify key terms to improve your resume's relevance",
-      color: '#F59E0B',
-    },
+    // {
+    //   title: 'Keyword Analysis',
+    //   icon: <KeywordIcon fontSize="large" />,
+    //   path: '/analyze-keywords',
+    //   description: "Identify key terms to improve your resume's relevance",
+    //   color: '#F59E0B',
+    // },
   ];
 
   return (
