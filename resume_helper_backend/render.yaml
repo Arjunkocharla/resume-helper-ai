@@ -1,12 +1,9 @@
 services:
   - type: web
     name: resume-helper-api
-    env: ubuntu
+    env: docker
     rootDir: resume_helper_backend
-    buildCommand: |
-      apt-get update && apt-get install -y python3 python3-pip libreoffice
-      pip3 install -r requirements.txt
-    startCommand: python3 app.py
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 300 --workers 2 app:app
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
