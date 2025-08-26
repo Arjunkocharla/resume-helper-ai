@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Enable CORS for frontend
+# Enable CORS for frontend and production
 CORS(app, resources={
-    r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]},
-    r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}
+    r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://resume-helper-api.onrender.com", "*"]},
+    r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://resume-helper-api.onrender.com", "*"]}
 }, supports_credentials=True)
 
 # Configuration
