@@ -1,14 +1,12 @@
 services:
   - type: web
     name: resume-helper-api
-    env: python
+    env: ubuntu
     rootDir: resume_helper_backend
     buildCommand: |
-      pip install -r requirements.txt
-      # Install LibreOffice for PDF conversion
-      apt-get update && apt-get install -y libreoffice
-      # Note: On Linux, the command is 'soffice' (same as macOS)
-    startCommand: gunicorn app:app
+      apt-get update && apt-get install -y python3 python3-pip libreoffice
+      pip3 install -r requirements.txt
+    startCommand: python3 app.py
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
