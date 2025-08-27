@@ -3,7 +3,7 @@ services:
     name: resume-helper-api
     env: docker
     rootDir: resume_helper_backend
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 300 --workers 2 app:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 600 --workers 2 app:app
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
