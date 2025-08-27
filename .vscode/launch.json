@@ -2,27 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Flask (resume_analyzer)",
-      "type": "debugpy",
+      "name": "Python: Flask",
+      "type": "python",
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "resume_analyzer.py",
+        "FLASK_APP": "resume_helper_backend/resume_analyzer.py",
         "FLASK_ENV": "development",
-        "GOOGLE_APPLICATION_CREDENTIALS": "${workspaceFolder}/resume_helper_backend/resumehelperapp-firebase-adminsdk-s733b-e53b82664d.json"
+        "FLASK_DEBUG": "1"
       },
       "args": [
         "run",
         "--no-debugger",
-        "--port",
-        "5000"
+        "--no-reload"
       ],
       "jinja": true,
-      // Windows path
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-      // macOS/Linux path
-      // "python": "${workspaceFolder}/.venv/bin/python",
-      "cwd": "${workspaceFolder}/resume_helper_backend"
+      "justMyCode": true,
+      "python": "${workspaceFolder}/resume_helper_backend/venv/bin/python",
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Python: Flask (user_info_apis)",
