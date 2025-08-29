@@ -156,14 +156,33 @@ class PDFConverter:
             if output_dir and not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             
+            # Check if soffice command exists
+            soffice_path = None
+            for possible_path in ['/usr/bin/soffice', '/usr/bin/libreoffice', 'soffice']:
+                try:
+                    result = subprocess.run(['which', possible_path], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        soffice_path = result.stdout.strip()
+                        break
+                except:
+                    continue
+            
+            if not soffice_path:
+                self.logger.warning("LibreOffice soffice command not found in PATH")
+                return False
+            
+            self.logger.info(f"Using LibreOffice at: {soffice_path}")
+            
             # LibreOffice command for headless conversion
             cmd = [
-                'soffice',
+                soffice_path,
                 '--headless',
                 '--convert-to', 'pdf',
                 '--outdir', output_dir,
                 docx_path
             ]
+            
+            self.logger.info(f"Running LibreOffice command: {' '.join(cmd)}")
             
             # Run conversion
             result = subprocess.run(
@@ -184,9 +203,12 @@ class PDFConverter:
                 if libreoffice_pdf != output_path:
                     os.rename(libreoffice_pdf, output_path)
                 
+                self.logger.info(f"LibreOffice conversion successful: {output_path}")
                 return True
             else:
-                self.logger.warning(f"LibreOffice conversion failed: {result.stderr}")
+                self.logger.warning(f"LibreOffice conversion failed with return code {result.returncode}")
+                self.logger.warning(f"stdout: {result.stdout}")
+                self.logger.warning(f"stderr: {result.stderr}")
                 return False
                 
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
