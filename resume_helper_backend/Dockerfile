@@ -1,18 +1,10 @@
 FROM python:3.11-slim
 
-# Install system dependencies including LibreOffice and its dependencies
+# Install system dependencies including LibreOffice
 RUN apt-get update && apt-get install -y \
     libreoffice \
     libreoffice-writer \
-    libreoffice-common \
-    fonts-liberation \
-    fonts-liberation-sans \
-    fonts-liberation-serif \
-    fonts-liberation-mono \
     && rm -rf /var/lib/apt/lists/*
-
-# Verify LibreOffice installation and create symlink if needed
-RUN which soffice || ln -s /usr/bin/libreoffice /usr/bin/soffice
 
 # Set working directory
 WORKDIR /app
