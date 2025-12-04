@@ -120,9 +120,18 @@ def llm_providers():
 # RESUME ENHANCEMENT ENDPOINTS
 # ============================================================================
 
-@app.route('/api/enhance-resume', methods=['POST'])
+@app.route('/api/enhance-resume', methods=['POST', 'OPTIONS'])
 def enhance_resume():
     """Main resume enhancement endpoint"""
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        response.headers.add('Access-Control-Allow-Headers', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+    
     try:
         # Check if file is present
         if 'resume_file' not in request.files:
