@@ -274,7 +274,7 @@ def analyze_resume():
             'message': str(e)
         }), 500
 
-@app.route('/suggest_keywords', methods=['POST'])
+@app.route('/api/suggest-keywords', methods=['POST'])
 def suggest_keywords():
     """Suggest keywords endpoint (for SuggestKeywords component)"""
     logger.info("Suggest keywords endpoint called")
