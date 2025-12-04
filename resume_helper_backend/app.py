@@ -120,7 +120,7 @@ def llm_providers():
 # RESUME ENHANCEMENT ENDPOINTS
 # ============================================================================
 
-@app.route('/api/enhance-resume', methods=['POST', 'OPTIONS'])
+@app.route('/enhance-resume', methods=['POST', 'OPTIONS'])
 def enhance_resume():
     """Main resume enhancement endpoint"""
     # Handle preflight OPTIONS request
