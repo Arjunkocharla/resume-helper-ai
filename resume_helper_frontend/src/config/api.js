@@ -7,7 +7,7 @@ const API_CONFIG = {
   ENDPOINTS: {
     ENHANCE_RESUME: '/api/enhance-resume',
     ANALYZE_RESUME: '/api/analyze-resume',
-    SUGGEST_KEYWORDS: '/suggest_keywords',
+    SUGGEST_KEYWORDS: '/api/suggest-keywords',
     DOWNLOAD_FILE: '/api/download',
     WORKFLOW_STATUS: '/api/status',
     USER_PROFILE: '/api/user/profile',
