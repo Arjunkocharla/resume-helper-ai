@@ -126,8 +126,10 @@ def enhance_resume():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
-        response.headers.add('Access-Control-Allow-Headers', '*')
+        origin = request.headers.get('Origin')
+        if origin in allowed_origins:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Credentials', 'true')
         return response
@@ -197,14 +199,26 @@ def enhance_resume():
         }
         
         logger.info(f"Enhancement completed for request {request_id}")
-        return jsonify(response_data)
+        response = jsonify(response_data)
+        # Add CORS headers explicitly
+        origin = request.headers.get('Origin')
+        if origin in allowed_origins:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
         
     except Exception as e:
         logger.error(f"Enhancement failed: {str(e)}")
-        return jsonify({
+        error_response = jsonify({
             'error': 'Resume enhancement failed',
             'message': str(e)
-        }), 500
+        })
+        # Add CORS headers to error response
+        origin = request.headers.get('Origin')
+        if origin in allowed_origins:
+            error_response.headers.add('Access-Control-Allow-Origin', origin)
+        error_response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return error_response, 500
 
 @app.route('/api/analyze-resume', methods=['POST'])
 def analyze_resume():
