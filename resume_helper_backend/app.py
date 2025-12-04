@@ -22,12 +22,12 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Enable CORS for frontend and production
+# Note: Cannot use "*" with supports_credentials=True, so we list origins explicitly
 allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://resumehelperapp.web.app",
-    "https://resumehelperapp.firebaseapp.com",
-    "*"
+    "https://resumehelperapp.firebaseapp.com"
 ]
 
 CORS(app, 
