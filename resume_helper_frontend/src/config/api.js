@@ -1,11 +1,11 @@
 // API Configuration
 const API_CONFIG = {
   // Backend API base URL
-  BASE_URL: process.env.REACT_APP_API_URL || 'https://resume-helper-api.onrender.com',
+  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5001',
   
   // API endpoints
   ENDPOINTS: {
-    ENHANCE_RESUME: '/api/enhance-resume',
+    ENHANCE_RESUME: '/enhance-resume',
     ANALYZE_RESUME: '/api/analyze-resume',
     SUGGEST_KEYWORDS: '/api/suggest-keywords',
     DOWNLOAD_FILE: '/api/download',
