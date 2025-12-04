@@ -30,19 +30,11 @@ allowed_origins = [
     "https://resumehelperapp.firebaseapp.com"
 ]
 
+# Simplified CORS configuration
 CORS(app, 
-     resources={
-         r"/api/*": {
-             "origins": allowed_origins,
-             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             "allow_headers": ["*"]
-         },
-         r"/*": {
-             "origins": allowed_origins,
-             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             "allow_headers": ["*"]
-         }
-     },
+     origins=allowed_origins,
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["*"],
      supports_credentials=True)
 
 # Configuration
