@@ -120,20 +120,9 @@ def llm_providers():
 # RESUME ENHANCEMENT ENDPOINTS
 # ============================================================================
 
-@app.route('/enhance-resume', methods=['POST', 'OPTIONS'])
+@app.route('/enhance-resume', methods=['POST'])
 def enhance_resume():
     """Main resume enhancement endpoint"""
-    # Handle preflight OPTIONS request
-    if request.method == 'OPTIONS':
-        response = jsonify({})
-        origin = request.headers.get('Origin')
-        if origin in allowed_origins:
-            response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response
-    
     try:
         # Check if file is present
         if 'resume_file' not in request.files:
@@ -199,26 +188,16 @@ def enhance_resume():
         }
         
         logger.info(f"Enhancement completed for request {request_id}")
-        response = jsonify(response_data)
-        # Add CORS headers explicitly
-        origin = request.headers.get('Origin')
-        if origin in allowed_origins:
-            response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response
+        # Flask-CORS will automatically add CORS headers
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Enhancement failed: {str(e)}")
-        error_response = jsonify({
+        # Flask-CORS will automatically add CORS headers
+        return jsonify({
             'error': 'Resume enhancement failed',
             'message': str(e)
-        })
-        # Add CORS headers to error response
-        origin = request.headers.get('Origin')
-        if origin in allowed_origins:
-            error_response.headers.add('Access-Control-Allow-Origin', origin)
-        error_response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return error_response, 500
+        }), 500
 
 @app.route('/api/analyze-resume', methods=['POST'])
 def analyze_resume():
