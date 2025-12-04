@@ -22,10 +22,28 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Enable CORS for frontend and production
-CORS(app, resources={
-    r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://resume-helper-api.onrender.com", "*"]},
-    r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://resume-helper-api.onrender.com", "*"]}
-}, supports_credentials=True, allow_headers=["*"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://resumehelperapp.web.app",
+    "https://resumehelperapp.firebaseapp.com",
+    "*"
+]
+
+CORS(app, 
+     resources={
+         r"/api/*": {
+             "origins": allowed_origins,
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["*"]
+         },
+         r"/*": {
+             "origins": allowed_origins,
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["*"]
+         }
+     },
+     supports_credentials=True)
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
